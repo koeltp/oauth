@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="OAuth.Application/OAuth.Application.csproj" />
+  <Project Path="OAuth.Contracts/OAuth.Contracts.csproj" />
+  <Project Path="OAuth.Domain/OAuth.Domain.csproj" />
+  <Project Path="OAuth.Infrastructure/OAuth.Infrastructure.csproj" />
+  <Project Path="OAuth.Server/OAuth.Server.csproj" />
+</Solution>

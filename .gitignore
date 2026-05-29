@@ -1,0 +1,37 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.vs/
+*.DotSettings
+*.sln.docstates
+*.userprefs
+
+# Node / Vue
+oauthweb/node_modules/
+oauthweb/dist/
+oauthweb/.happypack/
+oauthweb/*.log
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# Environment
+*.env
+*.env.local
+
+# Logs
+*.log
+logs/
