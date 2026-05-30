@@ -53,7 +53,13 @@ export function createHttp(config: HttpConfig) {
     async (error) => {
       const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean }
       
-      if (error.response?.status === 401 && !originalRequest._retry) {
+      if (error.response?.status === 401) {
+        if (originalRequest._retry) {
+          config.logoutHandler()
+          return Promise.reject(error)
+        }
+
+        originalRequest._retry = true
         const refreshToken = config.refreshTokenGetter()
         
         if (!refreshToken) {
@@ -71,13 +77,12 @@ export function createHttp(config: HttpConfig) {
           })
         }
 
-        originalRequest._retry = true
         isRefreshing = true
 
         try {
           const res = await config.refreshTokenApi(refreshToken)
-          config.tokenSetter(res.access_token)
-          config.refreshTokenSetter(res.refresh_token)
+          config.tokenSetter(res.accessToken)
+          config.refreshTokenSetter(res.refreshToken)
           
           pendingRequests.forEach(({ resolve }) => resolve(undefined))
           pendingRequests = []
@@ -95,8 +100,17 @@ export function createHttp(config: HttpConfig) {
         }
       }
 
-      const errorMessage = error.response?.data?.message || error.message || '网络错误'
-      ElMessage.error(errorMessage)
+      const statusMessages: Record<number, string> = {
+        400: '请求参数错误',
+        401: '未授权，请重新登录',
+        403: '没有权限访问',
+        404: '请求的资源不存在',
+        500: '服务器内部错误',
+        502: '网关错误',
+        503: '服务暂不可用'
+      }
+      const message = error.response?.data?.message || error.response?.data?.title || statusMessages[error.response?.status] || error.message || '网络错误'
+      ElMessage.error(message)
       return Promise.reject(error)
     }
   )

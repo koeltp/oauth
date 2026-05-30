@@ -8,10 +8,12 @@ namespace OAuth.Infrastructure.Services;
 public class ClientService : IClientService
 {
     private readonly ApplicationDbContext _context;
+    private readonly IEncryptionService _encryptionService;
 
-    public ClientService(ApplicationDbContext context)
+    public ClientService(ApplicationDbContext context, IEncryptionService encryptionService)
     {
         _context = context;
+        _encryptionService = encryptionService;
     }
 
     public async Task<List<Client>> GetAllAsync()
@@ -30,6 +32,14 @@ public class ClientService : IClientService
             .ToListAsync();
     }
 
+    public async Task<List<Client>> GetByUserIdAsync(Guid userId)
+    {
+        return await _context.Clients
+            .Where(c => c.UserId == userId)
+            .OrderByDescending(c => c.CreatedAt)
+            .ToListAsync();
+    }
+
     public async Task<Client?> GetByIdAsync(Guid id)
     {
         return await _context.Clients.FindAsync(id);
@@ -40,21 +50,44 @@ public class ClientService : IClientService
         return await _context.Clients.FirstOrDefaultAsync(c => c.ClientId == clientId);
     }
 
-    public async Task<Client> CreateAsync(string name, string redirectUris, string allowedScopes)
+    public async Task<(Client Client, string ClientSecret)> CreateAsync(string name, string? description, string redirectUris, string allowedScopes, Guid? userId = null)
     {
+        if (userId.HasValue)
+        {
+            var userExists = await _context.Users.AnyAsync(u => u.Id == userId.Value);
+            if (!userExists)
+            {
+                throw new InvalidOperationException("关联的用户不存在");
+            }
+        }
+
+        var clientSecret = OpenIddictIdentifier.GenerateClientSecret();
         var client = new Client
         {
             ClientId = OpenIddictIdentifier.GenerateClientId(),
-            ClientSecretHash = BCrypt.Net.BCrypt.HashPassword(OpenIddictIdentifier.GenerateClientSecret()),
+            ClientSecretHash = BCrypt.Net.BCrypt.HashPassword(clientSecret),
+            ClientSecretEncrypted = _encryptionService.Encrypt(clientSecret),
             Name = name,
+            Description = description,
             RedirectUris = redirectUris,
             AllowedScopes = allowedScopes,
-            Status = ClientStatus.Pending
+            UserId = userId
         };
 
         _context.Clients.Add(client);
         await _context.SaveChangesAsync();
-        return client;
+        return (client, clientSecret);
+    }
+
+    public async Task SubmitAsync(Guid id)
+    {
+        var client = await _context.Clients.FindAsync(id);
+        if (client != null && client.Status == ClientStatus.Draft)
+        {
+            client.Status = ClientStatus.Pending;
+            client.UpdatedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+        }
     }
 
     public async Task ApproveAsync(Guid id, Guid reviewerId)
@@ -77,6 +110,17 @@ public class ClientService : IClientService
             client.Status = ClientStatus.Rejected;
             client.ReviewerId = reviewerId;
             client.ReviewedAt = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+        }
+    }
+
+    public async Task WithdrawAsync(Guid id)
+    {
+        var client = await _context.Clients.FindAsync(id);
+        if (client != null && client.Status != ClientStatus.Draft)
+        {
+            client.Status = ClientStatus.Draft;
+            client.UpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
         }
     }

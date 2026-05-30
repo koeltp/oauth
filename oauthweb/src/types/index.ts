@@ -10,7 +10,12 @@ export interface UserInfo {
   id: string
   username: string
   email: string
-  two_factor_enabled: boolean
+  phone?: string
+  emailVerified: boolean
+  phoneVerified: boolean
+  twoFactorEnabled: boolean
+  status: string
+  createdAt: string
 }
 
 // 管理员信息
@@ -30,16 +35,16 @@ export interface LoginRequest {
 
 // 登录响应
 export interface LoginResponse {
-  access_token: string
-  refresh_token?: string
+  accessToken: string
+  refreshToken?: string
   id: string
   username: string
   email?: string
   role?: string
   avatarUrl?: string
-  two_factor_enabled?: boolean
-  require_2fa?: boolean
-  user_id?: string
+  twoFactorEnabled?: boolean
+  require2Fa?: boolean
+  userId?: string
 }
 
 // 刷新 token 请求
@@ -49,8 +54,8 @@ export interface RefreshTokenRequest {
 
 // 刷新 token 响应
 export interface RefreshTokenResponse {
-  access_token: string
-  refresh_token: string
-  token_type: string
-  expires_in: number
+  accessToken: string
+  refreshToken: string
+  tokenType: string
+  expiresIn: number
 }

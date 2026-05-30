@@ -2,9 +2,10 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OAuth.Application.Interfaces;
 using OAuth.Contracts.Auth;
+using OAuth.Contracts.Common;
+using OAuth.Contracts.User;
 using OAuth.Domain.Entities;
-using OAuth.Infrastructure.Helpers;
-using System.Security.Claims;
+using OAuth.Domain.Exceptions;
 
 namespace OAuth.Server.Controllers;
 
@@ -13,270 +14,285 @@ namespace OAuth.Server.Controllers;
 [ApiVersion("1.0")]
 public class AuthController : ControllerBase
 {
+    private readonly IAuthService _authService;
     private readonly IUserService _userService;
     private readonly IVerificationCodeService _verificationCodeService;
-    private readonly IAdminService _adminService;
-    private readonly IJwtService _jwtService;
+    private readonly ICurrentUserService _currentUserService;
 
     public AuthController(
+        IAuthService authService,
         IUserService userService,
         IVerificationCodeService verificationCodeService,
-        IAdminService adminService,
-        IJwtService jwtService)
+        ICurrentUserService currentUserService)
     {
+        _authService = authService;
         _userService = userService;
         _verificationCodeService = verificationCodeService;
-        _adminService = adminService;
-        _jwtService = jwtService;
+        _currentUserService = currentUserService;
     }
 
     [AllowAnonymous]
     [HttpPost("register")]
-    public async Task<IActionResult> Register([FromBody] RegisterRequest request)
+    public async Task<ApiResponse<RegisterResponse>> Register([FromBody] RegisterRequest request)
     {
-        var existingUser = await _userService.GetByEmailAsync(request.Email);
-        if (existingUser != null)
+        try
         {
-            return BadRequest(new { message = "Email already registered" });
+            var result = await _authService.RegisterAsync(request.Username, request.Email, request.Password);
+            return new ApiResponse<RegisterResponse>
+            {
+                Data = new RegisterResponse
+                {
+                    UserId = result.UserId,
+                    Username = result.Username,
+                    Email = result.Email
+                }
+            };
         }
-
-        var user = new User
+        catch (InvalidOperationException ex)
         {
-            Username = request.Username,
-            Email = request.Email
-        };
-
-        await _userService.CreateAsync(user, request.Password);
-        return Ok(new { message = "User registered successfully" });
+            return new ApiResponse<RegisterResponse> { Code = 400, Message = ex.Message };
+        }
     }
 
     [AllowAnonymous]
     [HttpPost("login/password")]
-    public async Task<IActionResult> LoginWithPassword([FromBody] PasswordLoginRequest request)
+    public async Task<ApiResponse<LoginResponse>> LoginWithPassword([FromBody] PasswordLoginRequest request)
     {
-        var user = await _userService.GetByEmailAsync(request.Email);
-        if (user == null)
+        try
         {
-            return Unauthorized(new { message = "Invalid credentials" });
-        }
-
-        var isValid = await _userService.ValidatePasswordAsync(user, request.Password);
-        if (!isValid)
-        {
-            return Unauthorized(new { message = "Invalid credentials" });
-        }
-
-        if (user.Status != UserStatus.Active)
-        {
-            return Unauthorized(new { message = "Account is not active" });
-        }
-
-        if (user.TwoFactorEnabled)
-        {
-            if (string.IsNullOrEmpty(request.TwoFaCode))
+            var result = await _authService.LoginWithPasswordAsync(request.Email, request.Password, request.TwoFaCode);
+            return new ApiResponse<LoginResponse>
             {
-                return Ok(new { require_2fa = true, user_id = user.Id });
-            }
-            
-            if (!TotpHelper.Validate(user.TwoFactorSecret, request.TwoFaCode))
-            {
-                return BadRequest(new { message = "Invalid 2FA code" });
-            }
+                Data = new LoginResponse
+                {
+                    UserId = result.UserId,
+                    Username = result.Username,
+                    Email = result.Email,
+                    TwoFactorEnabled = result.TwoFactorEnabled,
+                    AccessToken = result.AccessToken,
+                    TokenType = "Bearer",
+                    ExpiresIn = result.ExpiresIn,
+                    IsAdmin = result.IsAdmin
+                }
+            };
         }
-
-        return await GenerateLoginResponse(user);
+        catch (TwoFactorRequiredException ex)
+        {
+            return new ApiResponse<LoginResponse> { Data = new LoginResponse { Require2FA = true, UserId = ex.UserId } };
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return new ApiResponse<LoginResponse> { Code = 401, Message = ex.Message };
+        }
+        catch (InvalidOperationException ex)
+        {
+            return new ApiResponse<LoginResponse> { Code = 400, Message = ex.Message };
+        }
     }
 
     [AllowAnonymous]
     [HttpPost("login/email-code")]
-    public async Task<IActionResult> SendEmailCode([FromBody] SendCodeRequest request)
+    public async Task<ApiResponse<SendCodeResponse>> SendEmailCode([FromBody] SendCodeRequest request)
     {
         if (string.IsNullOrEmpty(request.Email))
         {
-            return BadRequest(new { message = "Email is required" });
+            return new ApiResponse<SendCodeResponse> { Code = 400, Message = "请输入邮箱地址" };
         }
 
         var user = await _userService.GetByEmailAsync(request.Email);
         if (user == null && request.Purpose == VerificationCodePurpose.Login)
         {
-            return BadRequest(new { message = "User not found" });
+            return new ApiResponse<SendCodeResponse> { Code = 400, Message = "用户未找到" };
         }
 
         await _verificationCodeService.CreateAsync(request.Email, null, request.Purpose, VerificationCodeType.Email);
 
-        return Ok(new { message = "Verification code sent", expires_in = 300 });
+        return new ApiResponse<SendCodeResponse> { Data = new SendCodeResponse { ExpiresIn = 300 }, Message = "验证码已发送" };
     }
 
     [AllowAnonymous]
     [HttpPost("login/sms-code")]
-    public async Task<IActionResult> SendSmsCode([FromBody] SendCodeRequest request)
+    public async Task<ApiResponse<SendCodeResponse>> SendSmsCode([FromBody] SendCodeRequest request)
     {
         if (string.IsNullOrEmpty(request.Phone))
         {
-            return BadRequest(new { message = "Phone number is required" });
+            return new ApiResponse<SendCodeResponse> { Code = 400, Message = "请输入手机号码" };
         }
 
         await _verificationCodeService.CreateAsync(null, request.Phone, request.Purpose, VerificationCodeType.Sms);
 
-        return Ok(new { message = "Verification code sent", expires_in = 300 });
+        return new ApiResponse<SendCodeResponse> { Data = new SendCodeResponse { ExpiresIn = 300 }, Message = "验证码已发送" };
     }
 
     [AllowAnonymous]
     [HttpPost("verify-code")]
-    public async Task<IActionResult> VerifyCode([FromBody] VerifyCodeRequest request)
+    public async Task<ApiResponse<LoginResponse>> VerifyCode([FromBody] VerifyCodeRequest request)
     {
-        var isValid = await _verificationCodeService.ValidateAsync(
-            request.Email, request.Phone, request.Code, request.Purpose);
-
-        if (!isValid)
+        try
         {
-            return BadRequest(new { message = "Invalid or expired verification code" });
+            var result = await _authService.VerifyCodeAsync(request.Email, request.Phone, request.Code, request.Purpose);
+            return new ApiResponse<LoginResponse>
+            {
+                Data = new LoginResponse
+                {
+                    UserId = result.UserId,
+                    Username = result.Username,
+                    Email = result.Email,
+                    TwoFactorEnabled = result.TwoFactorEnabled,
+                    AccessToken = result.AccessToken,
+                    TokenType = "Bearer",
+                    ExpiresIn = result.ExpiresIn,
+                    IsAdmin = result.IsAdmin
+                }
+            };
         }
-
-        if (request.Email == null)
+        catch (TwoFactorRequiredException ex)
         {
-            return Ok(new { verified = true });
+            return new ApiResponse<LoginResponse> { Data = new LoginResponse { Require2FA = true, UserId = ex.UserId } };
         }
-
-        var user = await _userService.GetByEmailAsync(request.Email);
-        if (user == null)
+        catch (InvalidOperationException ex)
         {
-            return Ok(new { verified = true });
+            return new ApiResponse<LoginResponse> { Code = 400, Message = ex.Message };
         }
-
-        if (user.TwoFactorEnabled)
-        {
-            return Ok(new { verified = true, require_2fa = true, user_id = user.Id });
-        }
-
-        return await GenerateLoginResponse(user);
     }
 
     [AllowAnonymous]
     [HttpPost("2fa/verify")]
-    public async Task<IActionResult> Verify2FA([FromBody] Verify2FARequest request)
+    public async Task<ApiResponse<LoginResponse>> Verify2FA([FromBody] Verify2FARequest request)
     {
-        if (!Guid.TryParse(request.UserId, out var userId))
+        try
         {
-            return BadRequest(new { message = "Invalid user ID" });
+            var result = await _authService.Verify2FAAsync(request.UserId, request.Code);
+            return new ApiResponse<LoginResponse>
+            {
+                Data = new LoginResponse
+                {
+                    UserId = result.UserId,
+                    Username = result.Username,
+                    Email = result.Email,
+                    TwoFactorEnabled = result.TwoFactorEnabled,
+                    AccessToken = result.AccessToken,
+                    TokenType = "Bearer",
+                    ExpiresIn = result.ExpiresIn,
+                    IsAdmin = result.IsAdmin
+                }
+            };
         }
-
-        var user = await _userService.GetByIdAsync(userId);
-        if (user == null)
+        catch (InvalidOperationException ex)
         {
-            return BadRequest(new { message = "User not found" });
+            return new ApiResponse<LoginResponse> { Code = 400, Message = ex.Message };
         }
-
-        if (!user.TwoFactorEnabled || string.IsNullOrEmpty(user.TwoFactorSecret))
-        {
-            return BadRequest(new { message = "2FA is not enabled" });
-        }
-
-        if (!TotpHelper.Validate(user.TwoFactorSecret, request.Code))
-        {
-            return BadRequest(new { message = "Invalid 2FA code" });
-        }
-
-        return await GenerateLoginResponse(user);
     }
 
+    /// <summary>
+    /// 开启两步验证
+    /// </summary>
+    /// <returns></returns>
     [HttpPost("2fa/enable")]
     [Authorize]
-    public async Task<IActionResult> Enable2FA()
+    public async Task<ApiResponse<TwoFactorSetupResponse>> Enable2FA()
     {
-        var userId = GetCurrentUserId();
+        var userId = _currentUserService.GetUserId();
         if (userId == null)
         {
-            return Unauthorized();
+            return new ApiResponse<TwoFactorSetupResponse> { Code = 401, Message = "未授权" };
         }
 
-        var user = await _userService.GetByIdAsync(userId.Value);
-        if (user == null)
+        try
         {
-            return NotFound(new { message = "User not found" });
+            var result = await _authService.Enable2FAAsync(userId.Value);
+            return new ApiResponse<TwoFactorSetupResponse>
+            {
+                Data = new TwoFactorSetupResponse
+                {
+                    Secret = result.Secret,
+                    QrCodeUrl = result.QrCodeUrl
+                }
+            };
+        }
+        catch (InvalidOperationException ex)
+        {
+            return new ApiResponse<TwoFactorSetupResponse> { Code = 404, Message = ex.Message };
+        }
+    }
+
+    [HttpPost("2fa/confirm")]
+    [Authorize]
+    public async Task<ApiResponse<object>> Confirm2FA([FromBody] Confirm2FARequest request)
+    {
+        var userId = _currentUserService.GetUserId();
+        if (userId == null)
+        {
+            return new ApiResponse<object> { Code = 401, Message = "未授权" };
         }
 
-        var secret = TotpHelper.GenerateSecret();
-        user.TwoFactorSecret = secret;
-        user.TwoFactorEnabled = true;
-        await _userService.UpdateAsync(user);
-
-        return Ok(new { 
-            secret, 
-            qr_code_url = $"otpauth://totp/OAuth:{user.Email}?secret={secret}&issuer=OAuth" 
-        });
+        try
+        {
+            await _authService.Confirm2FAAsync(userId.Value, request.Code);
+            return new ApiResponse<object> { Message = "两步验证已开启" };
+        }
+        catch (InvalidOperationException ex)
+        {
+            return new ApiResponse<object> { Code = 400, Message = ex.Message };
+        }
     }
 
     [HttpPost("2fa/disable")]
     [Authorize]
-    public async Task<IActionResult> Disable2FA([FromBody] Disable2FARequest request)
+    public async Task<ApiResponse<UserInfoResponse>> Disable2FA([FromBody] Disable2FARequest request)
     {
-        var userId = GetCurrentUserId();
+        var userId = _currentUserService.GetUserId();
         if (userId == null)
         {
-            return Unauthorized();
+            return new ApiResponse<UserInfoResponse> { Code = 401, Message = "未授权" };
         }
 
-        var user = await _userService.GetByIdAsync(userId.Value);
-        if (user == null)
+        try
         {
-            return NotFound(new { message = "User not found" });
+            await _authService.Disable2FAAsync(userId.Value, request.Code);
+            return new ApiResponse<UserInfoResponse> { Message = "两步验证已禁用" };
         }
-
-        if (!TotpHelper.Validate(user.TwoFactorSecret, request.Code))
+        catch (InvalidOperationException ex)
         {
-            return BadRequest(new { message = "Invalid 2FA code" });
+            return new ApiResponse<UserInfoResponse> { Code = 400, Message = ex.Message };
         }
-
-        user.TwoFactorEnabled = false;
-        user.TwoFactorSecret = null;
-        await _userService.UpdateAsync(user);
-
-        return Ok(new { message = "2FA disabled" });
     }
 
     [HttpPost("change-password")]
     [Authorize]
-    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordRequest request)
+    public async Task<ApiResponse<UserInfoResponse>> ChangePassword([FromBody] ChangePasswordRequest request)
     {
-        var userId = GetCurrentUserId();
+        var userId = _currentUserService.GetUserId();
         if (userId == null)
         {
-            return Unauthorized();
+            return new ApiResponse<UserInfoResponse> { Code = 401, Message = "未授权" };
         }
 
-        var user = await _userService.GetByIdAsync(userId.Value);
-        if (user == null)
+        try
         {
-            return NotFound(new { message = "User not found" });
+            await _authService.ChangePasswordAsync(userId.Value, request.CurrentPassword, request.NewPassword);
+            return new ApiResponse<UserInfoResponse> { Message = "密码修改成功" };
         }
-
-        var isValid = await _userService.ValidatePasswordAsync(user, request.CurrentPassword);
-        if (!isValid)
+        catch (InvalidOperationException ex)
         {
-            return BadRequest(new { message = "Current password is incorrect" });
+            return new ApiResponse<UserInfoResponse> { Code = 400, Message = ex.Message };
         }
-
-        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
-        await _userService.UpdateAsync(user);
-
-        return Ok(new { message = "Password changed successfully" });
     }
 
     [HttpPut("profile")]
     [Authorize]
-    public async Task<IActionResult> UpdateProfile([FromBody] UpdateProfileRequest request)
+    public async Task<ApiResponse<UserInfoResponse>> UpdateProfile([FromBody] UpdateProfileRequest request)
     {
-        var userId = GetCurrentUserId();
+        var userId = _currentUserService.GetUserId();
         if (userId == null)
         {
-            return Unauthorized();
+            return new ApiResponse<UserInfoResponse> { Code = 401, Message = "未授权" };
         }
 
         var user = await _userService.GetByIdAsync(userId.Value);
         if (user == null)
         {
-            return NotFound(new { message = "User not found" });
+            return new ApiResponse<UserInfoResponse> { Code = 404, Message = "用户未找到" };
         }
 
         if (!string.IsNullOrEmpty(request.Username))
@@ -291,74 +307,57 @@ public class AuthController : ControllerBase
 
         await _userService.UpdateAsync(user);
 
-        return Ok(new { message = "Profile updated successfully" });
+        return new ApiResponse<UserInfoResponse>
+        {
+            Data = new UserInfoResponse
+            {
+                Id = user.Id,
+                Username = user.Username,
+                Email = user.Email,
+                Phone = user.Phone,
+                EmailVerified = user.EmailVerified,
+                PhoneVerified = user.PhoneVerified,
+                TwoFactorEnabled = user.TwoFactorEnabled,
+                Status = user.Status.ToString(),
+                CreatedAt = user.CreatedAt
+            }
+        };
     }
 
     [HttpPost("bind-phone")]
     [Authorize]
-    public async Task<IActionResult> BindPhone([FromBody] BindPhoneRequest request)
+    public async Task<ApiResponse<UserInfoResponse>> BindPhone([FromBody] BindPhoneRequest request)
     {
-        var userId = GetCurrentUserId();
+        var userId = _currentUserService.GetUserId();
         if (userId == null)
         {
-            return Unauthorized();
+            return new ApiResponse<UserInfoResponse> { Code = 401, Message = "未授权" };
         }
 
-        var user = await _userService.GetByIdAsync(userId.Value);
-        if (user == null)
+        try
         {
-            return NotFound(new { message = "User not found" });
+            await _authService.BindPhoneAsync(userId.Value, request.Phone, request.Code);
+            var user = await _userService.GetByIdAsync(userId.Value);
+            return new ApiResponse<UserInfoResponse>
+            {
+                Data = new UserInfoResponse
+                {
+                    Id = user.Id,
+                    Username = user.Username,
+                    Email = user.Email,
+                    Phone = user.Phone,
+                    EmailVerified = user.EmailVerified,
+                    PhoneVerified = user.PhoneVerified,
+                    TwoFactorEnabled = user.TwoFactorEnabled,
+                    Status = user.Status.ToString(),
+                    CreatedAt = user.CreatedAt
+                },
+                Message = "手机绑定成功"
+            };
         }
-
-        var isValid = await _verificationCodeService.ValidateAsync(
-            null, request.Phone, request.Code, VerificationCodePurpose.BindPhone);
-
-        if (!isValid)
+        catch (InvalidOperationException ex)
         {
-            return BadRequest(new { message = "Invalid or expired verification code" });
+            return new ApiResponse<UserInfoResponse> { Code = 400, Message = ex.Message };
         }
-
-        user.Phone = request.Phone;
-        user.PhoneVerified = true;
-        await _userService.UpdateAsync(user);
-
-        return Ok(new { message = "Phone bound successfully" });
-    }
-
-    /// <summary>
-    /// 从 Claims 获取当前用户 ID
-    /// </summary>
-    private Guid? GetCurrentUserId()
-    {
-        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value 
-                          ?? User.FindFirst("sub")?.Value;
-        
-        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-        {
-            return null;
-        }
-        
-        return userId;
-    }
-
-    /// <summary>
-    /// 生成登录响应（统一响应格式）
-    /// </summary>
-    private async Task<IActionResult> GenerateLoginResponse(User user)
-    {
-        var admin = await _adminService.GetByUsernameAsync(user.Username);
-        var token = _jwtService.GenerateUserToken(user, admin?.Role.ToString());
-        
-        return Ok(new 
-        { 
-            user_id = user.Id, 
-            username = user.Username, 
-            email = user.Email, 
-            two_factor_enabled = user.TwoFactorEnabled, 
-            access_token = token, 
-            token_type = "Bearer", 
-            expires_in = _jwtService.GetExpirationSeconds(), 
-            is_admin = admin != null 
-        });
     }
 }

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OAuth.Application.Interfaces;
+using OAuth.Contracts.Common;
 using OAuth.Domain.Entities;
 
 namespace OAuth.Server.Controllers;
@@ -26,9 +27,9 @@ public class StatsController : ControllerBase
 
     [HttpGet]
     [AllowAnonymous]
-    public async Task<IActionResult> GetStats()
+    public async Task<ApiResponse<StatsResponse>> GetStats()
     {
-        var stats = new
+        var stats = new StatsResponse
         {
             TotalUsers = await _userService.GetTotalUsersCount(),
             TotalClients = await _clientService.GetTotalClientsCount(),
@@ -36,6 +37,6 @@ public class StatsController : ControllerBase
             TotalAuthorizations = await _authorizationService.GetTotalAuthorizationsCount()
         };
 
-        return Ok(stats);
+        return new ApiResponse<StatsResponse> { Data = stats };
     }
 }

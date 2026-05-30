@@ -61,28 +61,34 @@ public static class TotpHelper
     public static string GenerateSecret()
     {
         const string base32Chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
-        var random = new Random();
+        using var rng = RandomNumberGenerator.Create();
         var bytes = new byte[16];
-        random.NextBytes(bytes);
-        
+        rng.GetBytes(bytes);
+
         var result = new StringBuilder();
-        for (int i = 0; i < bytes.Length; i += 5)
+        int bits = 0;
+        int buffer = 0;
+
+        foreach (byte b in bytes)
         {
-            int remaining = Math.Min(5, bytes.Length - i);
-            ulong value = 0;
-            for (int j = 0; j < remaining; j++)
-            {
-                value = (value << 8) | bytes[i + j];
-            }
-            
-            int bits = remaining * 8;
-            while (bits > 0)
+            buffer = (buffer << 8) | b;
+            bits += 8;
+
+            while (bits >= 5)
             {
                 bits -= 5;
-                result.Append(base32Chars[(int)(value >> bits) & 31]);
+                result.Append(base32Chars[(buffer >> bits) & 31]);
             }
         }
-        
+
+        if (bits > 0)
+        {
+            result.Append(base32Chars[(buffer << (5 - bits)) & 31]);
+        }
+
+        int padding = (8 - (result.Length % 8)) % 8;
+        result.Append('=', padding);
+
         return result.ToString();
     }
 
@@ -101,7 +107,7 @@ public static class TotpHelper
         {
             int charIndex = base32Chars.IndexOf(c);
             if (charIndex < 0)
-                throw new FormatException("Invalid Base32 character");
+                throw new FormatException("无效的Base32字符");
             
             value = (value << 5) | charIndex;
             bits += 5;

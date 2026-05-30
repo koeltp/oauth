@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
+using OAuth.Contracts.Common;
 
 namespace OAuth.Server.Filters;
 
@@ -20,7 +21,7 @@ public class ValidateModelAttribute : ActionFilterAttribute
                 .Where(m => !string.IsNullOrEmpty(m));
 
             var message = string.Join("；", errors);
-            context.Result = new BadRequestObjectResult(new { message });
+            context.Result = new BadRequestObjectResult(ApiResponse<object>.BadRequest(message));
         }
     }
 }
@@ -37,7 +38,7 @@ public static class ModelStateExtensions
                 .Where(m => !string.IsNullOrEmpty(m));
 
             var message = string.Join("；", errors);
-            return controller.BadRequest(new { message });
+            return controller.BadRequest(ApiResponse<object>.BadRequest(message));
         }
         return null;
     }

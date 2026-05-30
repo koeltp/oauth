@@ -27,16 +27,16 @@ public static class DbSeeder
                 new()
                 {
                     Username = "admin",
-                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123"),
-                    Email = "admin@example.com",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("123456"),
+                    Email = "admin@taipi.top",
                     Role = AdminRole.SuperAdmin,
                     CreatedAt = DateTime.UtcNow
                 },
                 new()
                 {
                     Username = "operator",
-                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("operator123"),
-                    Email = "operator@example.com",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("123456"),
+                    Email = "operator@taipi.top",
                     Role = AdminRole.Admin,
                     CreatedAt = DateTime.UtcNow
                 }
@@ -55,9 +55,9 @@ public static class DbSeeder
             new()
             {
                 Username = "admin",
-                Email = "admin@example.com",
+                Email = "admin@taipi.top",
                 Phone = "13800138000",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123"),
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("123456"),
                 EmailVerified = true,
                 PhoneVerified = true,
                 TwoFactorEnabled = false,
@@ -67,7 +67,7 @@ public static class DbSeeder
             new()
             {
                 Username = "zhangsan",
-                Email = "zhangsan@example.com",
+                Email = "zhangsan@taipi.top",
                 Phone = "13800138001",
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("123456"),
                 EmailVerified = true,
@@ -79,7 +79,7 @@ public static class DbSeeder
             new()
             {
                 Username = "lisi",
-                Email = "lisi@example.com",
+                Email = "lisi@taipi.top",
                 Phone = "13800138002",
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("123456"),
                 EmailVerified = true,
@@ -92,7 +92,7 @@ public static class DbSeeder
             new()
             {
                 Username = "wangwu",
-                Email = "wangwu@example.com",
+                Email = "wangwu@taipi.top",
                 Phone = "13800138003",
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("123456"),
                 EmailVerified = false,
@@ -111,55 +111,73 @@ public static class DbSeeder
     {
         if (!await context.Clients.AnyAsync())
         {
+            var users = await context.Users.Take(2).ToListAsync();
+
+            var clientSecretA = OpenIddictIdentifier.GenerateClientSecret();
+            var clientSecretB = OpenIddictIdentifier.GenerateClientSecret();
+            var clientSecretC = OpenIddictIdentifier.GenerateClientSecret();
+            var clientSecretD = OpenIddictIdentifier.GenerateClientSecret();
+
             var clients = new List<Client>
-        {
-            new()
             {
-                ClientId = OpenIddictIdentifier.GenerateClientId(),
-                ClientSecretHash = BCrypt.Net.BCrypt.HashPassword(OpenIddictIdentifier.GenerateClientSecret()),
-                Name = "测试应用 A",
-                Logo = null,
-                RedirectUris = "https://app-a.example.com/callback",
-                AllowedScopes = "openid profile email",
-                Status = ClientStatus.Approved,
-                CreatedAt = DateTime.UtcNow
-            },
-            new()
-            {
-                ClientId = OpenIddictIdentifier.GenerateClientId(),
-                ClientSecretHash = BCrypt.Net.BCrypt.HashPassword(OpenIddictIdentifier.GenerateClientSecret()),
-                Name = "测试应用 B",
-                Logo = null,
-                RedirectUris = "https://app-b.example.com/callback",
-                AllowedScopes = "openid profile email phone",
-                Status = ClientStatus.Approved,
-                CreatedAt = DateTime.UtcNow
-            },
-            new()
-            {
-                ClientId = OpenIddictIdentifier.GenerateClientId(),
-                ClientSecretHash = BCrypt.Net.BCrypt.HashPassword(OpenIddictIdentifier.GenerateClientSecret()),
-                Name = "待审核应用",
-                Logo = null,
-                RedirectUris = "https://pending.example.com/callback",
-                AllowedScopes = "openid profile",
-                Status = ClientStatus.Pending,
-                CreatedAt = DateTime.UtcNow
-            },
-            new()
-            {
-                ClientId = OpenIddictIdentifier.GenerateClientId(),
-                ClientSecretHash = BCrypt.Net.BCrypt.HashPassword(OpenIddictIdentifier.GenerateClientSecret()),
-                Name = "被拒绝的应用",
-                Logo = null,
-                RedirectUris = "https://rejected.example.com/callback",
-                AllowedScopes = "openid profile",
-                Status = ClientStatus.Rejected,
-                ReviewerId = null,
-                ReviewedAt = DateTime.UtcNow,
-                CreatedAt = DateTime.UtcNow
-            }
-        };
+                new()
+                {
+                    ClientId = OpenIddictIdentifier.GenerateClientId(),
+                    ClientSecretHash = BCrypt.Net.BCrypt.HashPassword(clientSecretA),
+                    ClientSecretEncrypted = "seed-only",
+                    Name = "测试应用 A",
+                    Description = "这是一个用于测试的 OAuth 应用",
+                    Logo = null,
+                    RedirectUris = "https://app-a.taipi.top/callback",
+                    AllowedScopes = "openid profile email",
+                    Status = ClientStatus.Approved,
+                    UserId = users.Count > 0 ? users[0].Id : null,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new()
+                {
+                    ClientId = OpenIddictIdentifier.GenerateClientId(),
+                    ClientSecretHash = BCrypt.Net.BCrypt.HashPassword(clientSecretB),
+                    ClientSecretEncrypted = "seed-only",
+                    Name = "测试应用 B",
+                    Description = "另一个测试应用，用于多场景验证",
+                    Logo = null,
+                    RedirectUris = "https://app-b.taipi.top/callback",
+                    AllowedScopes = "openid profile email phone",
+                    Status = ClientStatus.Approved,
+                    UserId = users.Count > 0 ? users[0].Id : null,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new()
+                {
+                    ClientId = OpenIddictIdentifier.GenerateClientId(),
+                    ClientSecretHash = BCrypt.Net.BCrypt.HashPassword(clientSecretC),
+                    ClientSecretEncrypted = "seed-only",
+                    Name = "待审核应用",
+                    Description = "等待管理员审核的测试应用",
+                    Logo = null,
+                    RedirectUris = "https://pending.taipi.top/callback",
+                    AllowedScopes = "openid profile",
+                    Status = ClientStatus.Pending,
+                    UserId = users.Count > 1 ? users[1].Id : null,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new()
+                {
+                    ClientId = OpenIddictIdentifier.GenerateClientId(),
+                    ClientSecretHash = BCrypt.Net.BCrypt.HashPassword(clientSecretD),
+                    ClientSecretEncrypted = "seed-only",
+                    Name = "被拒绝的应用",
+                    Description = "因不符合规范被拒绝的示例应用",
+                    Logo = null,
+                    RedirectUris = "https://rejected.taipi.top/callback",
+                    AllowedScopes = "openid profile",
+                    Status = ClientStatus.Rejected,
+                    ReviewerId = null,
+                    ReviewedAt = DateTime.UtcNow,
+                    CreatedAt = DateTime.UtcNow
+                }
+            };
 
             await context.Clients.AddRangeAsync(clients);
         }

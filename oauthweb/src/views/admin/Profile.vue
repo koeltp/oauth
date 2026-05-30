@@ -340,7 +340,6 @@ onMounted(() => {
 /* 页面头部 */
 .page-header {
   padding: 32px;
-  border-bottom: 1px solid #e4e7ed;
 }
 
 .page-header h1 {

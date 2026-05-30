@@ -35,6 +35,14 @@ public class ApplicationDbContext : DbContext
         builder.Entity<Client>(entity =>
         {
             entity.HasIndex(e => e.ClientId).IsUnique();
+            entity.HasOne(e => e.User)
+                  .WithMany()
+                  .HasForeignKey(e => e.UserId)
+                  .OnDelete(DeleteBehavior.SetNull);
+            entity.HasOne(e => e.Reviewer)
+                  .WithMany()
+                  .HasForeignKey(e => e.ReviewerId)
+                  .OnDelete(DeleteBehavior.SetNull);
         });
 
         // Admin

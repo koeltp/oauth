@@ -45,9 +45,10 @@ export const approveClient = (id: string) => {
   })
 }
 
-export const rejectClient = (id: string) => {
+export const rejectClient = (id: string, data?: { reason: string }) => {
   return adminApi({
     url: `/admin/clients/${id}/reject`,
-    method: 'put'
+    method: 'put',
+    data
   })
 }

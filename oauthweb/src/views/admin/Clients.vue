@@ -38,9 +38,16 @@
       <el-table :data="clients" v-loading="loading" stripe style="margin-top: 20px">
         <el-table-column type="index" label="序号" width="80" align="center" />
         <el-table-column prop="name" label="应用名称" min-width="150" />
+        <el-table-column prop="description" label="应用描述" min-width="200" show-overflow-tooltip />
         <el-table-column prop="clientId" label="Client ID" width="200" />
         <el-table-column prop="redirectUris" label="回调地址" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="allowedScopes" label="授权范围" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="allowedScopes" label="授权范围" min-width="200">
+          <template #default="{ row }">
+            <el-tag v-for="scope in row.allowedScopes?.split(' ') || []" :key="scope" size="small" style="margin-right: 4px">
+              {{ scope }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="status" label="状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="getStatusType(row.status)" size="small">
@@ -48,16 +55,20 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createdAt" label="创建时间" width="180" />
+        <el-table-column label="创建时间" width="180">
+          <template #default="{ row }">
+            {{ formatDate(row.createdAt) }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="250" align="center" fixed="right">
           <template #default="{ row }">
-            <el-button type="primary" link size="small" @click="handleView(row)">详情</el-button>
             <el-button type="success" link size="small" @click="handleApprove(row)" v-if="row.status === 'Pending'">
               批准
             </el-button>
             <el-button type="danger" link size="small" @click="handleReject(row)" v-if="row.status === 'Pending'">
               拒绝
             </el-button>
+            <el-button type="primary" link size="small" @click="handleView(row)" v-if="row.status !== 'Pending'">详情</el-button>
             <el-button type="danger" link size="small" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -104,10 +115,33 @@
           <el-tag :type="getStatusType(currentClient?.status)">{{ getStatusText(currentClient?.status) }}</el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="Client ID" :span="2">{{ currentClient?.clientId }}</el-descriptions-item>
+        <el-descriptions-item label="应用描述" :span="2">{{ currentClient?.description || '-' }}</el-descriptions-item>
         <el-descriptions-item label="回调地址" :span="2">{{ currentClient?.redirectUris }}</el-descriptions-item>
-        <el-descriptions-item label="授权范围" :span="2">{{ currentClient?.allowedScopes }}</el-descriptions-item>
-        <el-descriptions-item label="创建时间">{{ currentClient?.createdAt }}</el-descriptions-item>
+        <el-descriptions-item label="授权范围" :span="2">
+          <el-tag v-for="scope in currentClient?.allowedScopes?.split(' ') || []" :key="scope" size="small" style="margin-right: 4px">
+            {{ scope }}
+          </el-tag>
+        </el-descriptions-item>
+        <el-descriptions-item label="创建时间">{{ formatDate(currentClient?.createdAt) }}</el-descriptions-item>
       </el-descriptions>
+      <template #footer v-if="currentClient?.status === 'Pending'">
+        <el-button @click="showDetailDialog = false">关闭</el-button>
+        <el-button type="success" @click="handleApproveFromDetail">批准</el-button>
+        <el-button type="danger" @click="handleRejectFromDetail">拒绝</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 拒绝原因输入弹窗 -->
+    <el-dialog v-model="showRejectReasonDialog" title="拒绝原因" width="450px" :close-on-click-modal="false">
+      <el-form :model="rejectReasonForm" ref="rejectReasonFormRef" label-width="80px">
+        <el-form-item label="原因" prop="reason" :rules="[{ required: true, message: '请输入拒绝原因' }]">
+          <el-input v-model="rejectReasonForm.reason" type="textarea" :rows="4" placeholder="请输入拒绝原因" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showRejectReasonDialog = false">取消</el-button>
+        <el-button type="danger" :loading="rejecting" @click="confirmReject">确认拒绝</el-button>
+      </template>
     </el-dialog>
   </div>
 </template>
@@ -118,6 +152,7 @@ import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'elem
 import { Plus, Search } from '@element-plus/icons-vue'
 import { getClients, approveClient, rejectClient, deleteClient } from '@/api/client'
 import api from '@/utils/api'
+import { formatDate } from '@/utils/format'
 
 const loading = ref(false)
 const clients = ref<any[]>([])
@@ -127,7 +162,11 @@ const total = ref(0)
 
 const showRegisterDialog = ref(false)
 const showDetailDialog = ref(false)
+const showRejectReasonDialog = ref(false)
 const currentClient = ref<any>(null)
+const rejecting = ref(false)
+const rejectReasonFormRef = ref()
+const rejectReasonForm = ref({ reason: '' })
 
 const searchForm = reactive({
   name: '',
@@ -217,7 +256,7 @@ const handleRegister = async () => {
             allowedScopes: form.allowedScopes
           }
         })
-        ElMessage.success(`创建成功，Client ID: ${res.client_id}`)
+        ElMessage.success(`创建成功，Client ID: ${res.clientId}`)
         showRegisterDialog.value = false
         form.name = ''
         form.redirectUris = ''
@@ -242,16 +281,30 @@ const handleApprove = async (row: any) => {
   }
 }
 
-const handleReject = async (row: any) => {
+const handleReject = (row: any) => {
+  currentClient.value = row
+  rejectReasonForm.value.reason = ''
+  showRejectReasonDialog.value = true
+}
+
+const confirmReject = async () => {
+  if (!rejectReasonFormRef.value) return
   try {
-    await ElMessageBox.confirm('确定拒绝该客户端吗？', '警告', { type: 'warning', confirmButtonText: '确定', cancelButtonText: '取消' })
-    await rejectClient(row.id)
+    await rejectReasonFormRef.value.validate()
+  } catch {
+    return
+  }
+  rejecting.value = true
+  try {
+    await rejectClient(currentClient.value.id, { reason: rejectReasonForm.value.reason })
     ElMessage.success('已拒绝')
+    showRejectReasonDialog.value = false
+    showDetailDialog.value = false
     await loadClients()
   } catch (error: any) {
-    if (error !== 'cancel') {
-      // 错误已在 api.ts 统一处理
-    }
+    // 错误已在 api.ts 统一处理
+  } finally {
+    rejecting.value = false
   }
 }
 

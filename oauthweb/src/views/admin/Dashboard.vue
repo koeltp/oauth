@@ -8,7 +8,7 @@
           <div class="stat-item">
             <el-icon class="stat-icon" color="#409eff"><Refresh /></el-icon>
             <div class="stat-info">
-              <span class="stat-value">{{ stats.pending_clients }}</span>
+              <span class="stat-value">{{ stats.pendingClients }}</span>
               <span class="stat-label">待审核客户端</span>
             </div>
           </div>
@@ -19,7 +19,7 @@
           <div class="stat-item">
             <el-icon class="stat-icon" color="#67c23a"><Checked  /></el-icon>
             <div class="stat-info">
-              <span class="stat-value">{{ stats.approved_clients }}</span>
+              <span class="stat-value">{{ stats.approvedClients }}</span>
               <span class="stat-label">已批准客户端</span>
             </div>
           </div>
@@ -30,7 +30,7 @@
           <div class="stat-item">
             <el-icon class="stat-icon" color="#e6a23c"><Monitor /></el-icon>
             <div class="stat-info">
-              <span class="stat-value">{{ stats.total_clients }}</span>
+              <span class="stat-value">{{ stats.totalClients }}</span>
               <span class="stat-label">总客户端数</span>
             </div>
           </div>
@@ -41,7 +41,7 @@
           <div class="stat-item">
             <el-icon class="stat-icon" color="#f56c6c"><User /></el-icon>
             <div class="stat-info">
-              <span class="stat-value">{{ stats.total_users }}</span>
+              <span class="stat-value">{{ stats.totalUsers }}</span>
               <span class="stat-label">总用户数</span>
             </div>
           </div>
@@ -74,10 +74,10 @@ import { Monitor, Checked , Refresh, User } from '@element-plus/icons-vue'
 import adminApi from '@/utils/admin-api'
 
 const stats = ref({
-  pending_clients: 0,
-  approved_clients: 0,
-  total_clients: 0,
-  total_users: 0
+  pendingClients: 0,
+  approvedClients: 0,
+  totalClients: 0,
+  totalUsers: 0
 })
 
 onMounted(async () => {
@@ -100,38 +100,7 @@ onMounted(async () => {
   margin-bottom: 30px;
   color: #333;
 }
-
-.stat-cards {
-  margin-bottom: 30px;
-}
-
-.stat-item {
-  display: flex;
-  align-items: center;
-  gap: 15px;
-}
-
-.stat-icon {
-  font-size: 40px;
-}
-
-.stat-info {
-  display: flex;
-  flex-direction: column;
-}
-
-.stat-value {
-  font-size: 28px;
-  font-weight: bold;
-  color: #333;
-}
-
-.stat-label {
-  font-size: 14px;
-  color: #999;
-}
-
 .recent-activity {
-  margin-top: 20px;
+  margin-top: 40px;
 }
 </style>

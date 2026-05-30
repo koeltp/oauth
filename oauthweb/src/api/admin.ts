@@ -6,10 +6,10 @@ export interface AdminLoginResponse {
   email: string
   role: string
   avatarUrl: string | null
-  access_token: string
-  refresh_token: string
-  expires_in: number
-  refresh_expires_in: number
+  accessToken: string
+  refreshToken: string
+  expiresIn: number
+  refreshExpiresIn: number
 }
 
 export interface AdminProfileResponse {

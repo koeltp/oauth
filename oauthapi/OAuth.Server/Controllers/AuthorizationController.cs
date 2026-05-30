@@ -3,6 +3,8 @@ using Microsoft.AspNetCore.Mvc;
 using OpenIddict.Server.AspNetCore;
 using OpenIddict.Abstractions;
 using OAuth.Application.Interfaces;
+using OAuth.Contracts.Authorization;
+using OAuth.Contracts.Common;
 using System.Security.Claims;
 
 namespace OAuth.Server.Controllers;
@@ -12,30 +14,59 @@ public class AuthorizationController : Controller
 {
     private readonly IOAuthAuthorizationService _authorizationService;
     private readonly IClientService _clientService;
+    private readonly ICurrentUserService _currentUserService;
 
-    public AuthorizationController(IOAuthAuthorizationService authorizationService, IClientService clientService)
+    public AuthorizationController(
+        IOAuthAuthorizationService authorizationService, 
+        IClientService clientService,
+        ICurrentUserService currentUserService)
     {
         _authorizationService = authorizationService;
         _clientService = clientService;
+        _currentUserService = currentUserService;
     }
 
     [HttpGet("authorize")]
     [Authorize(AuthenticationSchemes = OpenIddictServerAspNetCoreDefaults.AuthenticationScheme)]
-    public IActionResult Authorize()
+    public async Task<ApiResponse<AuthorizeResponse>> Authorize()
     {
-        return View("Authorize");
+        var clientId = Request.Query["client_id"].ToString();
+        var scope = Request.Query["scope"].ToString();
+
+        if (string.IsNullOrEmpty(clientId))
+        {
+            return new ApiResponse<AuthorizeResponse> { Code = 400, Message = "缺少客户端标识" };
+        }
+
+        var client = await _clientService.GetByClientIdAsync(clientId);
+        if (client == null)
+        {
+            return new ApiResponse<AuthorizeResponse> { Code = 400, Message = "无效的客户端" };
+        }
+
+        var userIdValue = _currentUserService.GetUserId()?.ToString();
+
+        return new ApiResponse<AuthorizeResponse>
+        {
+            Data = new AuthorizeResponse
+            {
+                ClientId = client.ClientId,
+                ClientName = client.Name,
+                Scopes = scope,
+                UserId = userIdValue
+            }
+        };
     }
 
     [HttpPost("authorize/accept")]
     [Authorize(AuthenticationSchemes = OpenIddictServerAspNetCoreDefaults.AuthenticationScheme)]
     public async Task<IActionResult> Accept()
     {
-        var userIdValue = User.FindFirstValue(ClaimTypes.NameIdentifier) 
-                          ?? User.FindFirstValue("sub");
+        var userId = _currentUserService.GetUserId();
         
-        if (string.IsNullOrEmpty(userIdValue) || !Guid.TryParse(userIdValue, out var userId))
+        if (userId == null)
         {
-            return BadRequest(new { error = "invalid_user" });
+            return BadRequest(new ApiResponse<object> { Code = 400, Message = "无效的用户" });
         }
         
         var clientId = Request.Query["client_id"].ToString();
@@ -44,10 +75,10 @@ public class AuthorizationController : Controller
         var client = await _clientService.GetByClientIdAsync(clientId);
         if (client == null)
         {
-            return BadRequest(new { error = "invalid_client" });
+            return BadRequest(new ApiResponse<object> { Code = 400, Message = "无效的客户端" });
         }
 
-        await _authorizationService.CreateAsync(userId, client.Id, scope);
+        await _authorizationService.CreateAsync(userId.Value, client.Id, scope);
 
         var claims = new List<Claim>
         {

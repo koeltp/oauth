@@ -5,10 +5,10 @@ export interface LoginResponse {
   id: string
   username: string
   email: string
-  access_token: string
-  refresh_token: string
-  expires_in: number
-  refresh_expires_in: number
+  accessToken: string
+  refreshToken: string
+  expiresIn: number
+  refreshExpiresIn: number
 }
 
 export interface RegisterRequest {
@@ -67,5 +67,21 @@ export const getUserInfo = (): Promise<UserInfo> => {
   return request({
     url: '/auth/userinfo',
     method: 'get'
+  })
+}
+
+export const confirm2FA = (data: { code: string }): Promise<void> => {
+  return request({
+    url: '/auth/2fa/confirm',
+    method: 'post',
+    data
+  })
+}
+
+export const bindPhone = (data: { phone: string; code: string }): Promise<void> => {
+  return request({
+    url: '/auth/bind-phone',
+    method: 'post',
+    data
   })
 }

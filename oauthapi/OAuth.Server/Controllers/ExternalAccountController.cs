@@ -2,7 +2,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using OAuth.Application.Interfaces;
+using OAuth.Contracts.Common;
 using OAuth.Contracts.ExternalAccount;
+using OAuth.Contracts.User;
 using OAuth.Domain.Entities;
 using System.Text.Json;
 
@@ -17,17 +19,20 @@ public class ExternalAccountController : ControllerBase
     private readonly IUserService _userService;
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly IConfiguration _configuration;
+    private readonly ICurrentUserService _currentUserService;
 
     public ExternalAccountController(
         IExternalAccountService externalAccountService,
         IUserService userService,
         IHttpClientFactory httpClientFactory,
-        IConfiguration configuration)
+        IConfiguration configuration,
+        ICurrentUserService currentUserService)
     {
         _externalAccountService = externalAccountService;
         _userService = userService;
         _httpClientFactory = httpClientFactory;
         _configuration = configuration;
+        _currentUserService = currentUserService;
     }
 
     [AllowAnonymous]
@@ -74,12 +79,12 @@ public class ExternalAccountController : ControllerBase
 
     [AllowAnonymous]
     [HttpGet("github/callback")]
-    public async Task<IActionResult> GithubCallback([FromQuery] string code, [FromQuery] string state)
+    public async Task<ApiResponse<GithubCallbackResponse>> GithubCallback([FromQuery] string code, [FromQuery] string state)
     {
         var storedState = Request.Cookies["oauth_state"];
         if (state != storedState)
         {
-            return BadRequest(new { message = "Invalid state" });
+            return new ApiResponse<GithubCallbackResponse> { Code = 400, Message = "无效的状态参数" };
         }
 
         Response.Cookies.Delete("oauth_state");
@@ -117,7 +122,7 @@ public class ExternalAccountController : ControllerBase
 
             if (!tokenParams.TryGetValue("access_token", out var accessToken))
             {
-                return BadRequest(new { message = "Failed to get access token" });
+                return new ApiResponse<GithubCallbackResponse> { Code = 400, Message = "获取访问令牌失败" };
             }
 
             httpClient.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", accessToken);
@@ -133,76 +138,83 @@ public class ExternalAccountController : ControllerBase
             if (existingAccount != null)
             {
                 var user = await _userService.GetByIdAsync(existingAccount.UserId);
-                return Ok(new
+                return new ApiResponse<GithubCallbackResponse>
                 {
-                    bound = true,
-                    user_id = existingAccount.UserId,
-                    email = user?.Email
-                });
+                    Data = new GithubCallbackResponse { Bound = true, UserId = existingAccount.UserId.ToString(), Email = user?.Email }
+                };
             }
 
-            return Ok(new
+            return new ApiResponse<GithubCallbackResponse>
             {
-                bound = false,
-                provider = "github",
-                provider_user_id = githubUserId,
-                email = email
-            });
+                Data = new GithubCallbackResponse { Bound = false, Provider = "github", ProviderUserId = githubUserId, Email = email }
+            };
         }
         catch (Exception ex)
         {
-            return BadRequest(new { message = $"OAuth callback failed: {ex.Message}" });
+            return new ApiResponse<GithubCallbackResponse> { Code = 400, Message = $"OAuth回调失败：{ex.Message}" };
         }
     }
 
     [HttpPost("bind")]
     [Authorize]
-    public async Task<IActionResult> Bind([FromBody] BindExternalAccountRequest request)
+    public async Task<ApiResponse<BoundAccountResponse>> Bind([FromBody] BindExternalAccountRequest request)
     {
-        var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var id))
+        var id = _currentUserService.GetUserId();
+        if (id == null)
         {
-            return Unauthorized();
+            return new ApiResponse<BoundAccountResponse> { Code = 401, Message = "未授权" };
         }
 
-        await _externalAccountService.BindAsync(id, request.Provider, request.ProviderUserId);
+        var account = await _externalAccountService.BindAsync(id.Value, request.Provider, request.ProviderUserId);
 
-        return Ok(new { message = "External account bound successfully" });
+        return new ApiResponse<BoundAccountResponse>
+        {
+            Data = new BoundAccountResponse
+            {
+                Id = account.Id,
+                Provider = account.Provider.ToString(),
+                CreatedAt = account.CreatedAt
+            },
+            Message = "外部账号绑定成功"
+        };
     }
 
     [HttpPost("unbind")]
     [Authorize]
-    public async Task<IActionResult> Unbind([FromBody] UnbindExternalAccountRequest request)
+    public async Task<ApiResponse<BoundAccountResponse>> Unbind([FromBody] UnbindExternalAccountRequest request)
     {
-        var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var id))
+        var id = _currentUserService.GetUserId();
+        if (id == null)
         {
-            return Unauthorized();
+            return new ApiResponse<BoundAccountResponse> { Code = 401, Message = "未授权" };
         }
 
-        await _externalAccountService.UnbindAsync(id, request.Provider);
+        await _externalAccountService.UnbindAsync(id.Value, request.Provider);
 
-        return Ok(new { message = "External account unbound successfully" });
+        return new ApiResponse<BoundAccountResponse> { Message = "外部账号解绑成功" };
     }
 
     [HttpGet("bound-accounts")]
     [Authorize]
-    public async Task<IActionResult> GetBoundAccounts()
+    public async Task<ApiResponse<IEnumerable<BoundAccountResponse>>> GetBoundAccounts()
     {
-        var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var id))
+        var id = _currentUserService.GetUserId();
+        if (id == null)
         {
-            return Unauthorized();
+            return new ApiResponse<IEnumerable<BoundAccountResponse>> { Code = 401, Message = "未授权" };
         }
 
-        var user = await _userService.GetByIdAsync(id);
-        var accounts = user?.ExternalAccounts.Select(e => new
+        var user = await _userService.GetByIdAsync(id.Value);
+        var accounts = user?.ExternalAccounts.Select(e => new BoundAccountResponse
         {
-            e.Id,
-            provider = e.Provider.ToString(),
-            e.CreatedAt
+            Id = e.Id,
+            Provider = e.Provider.ToString(),
+            CreatedAt = e.CreatedAt
         });
 
-        return Ok(accounts);
+        return new ApiResponse<IEnumerable<BoundAccountResponse>>
+        {
+            Data = accounts ?? Enumerable.Empty<BoundAccountResponse>()
+        };
     }
 }

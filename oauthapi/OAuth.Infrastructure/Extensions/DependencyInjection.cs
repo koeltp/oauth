@@ -18,6 +18,9 @@ public static class DependencyInjection
         services.AddScoped<IUserExternalAccountService, UserExternalAccountService>();
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();
         services.AddScoped<IAdminRefreshTokenService, AdminRefreshTokenService>();
+        services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IUserQueryService, UserQueryService>();
+        services.AddScoped<IEncryptionService, EncryptionService>();
 
         return services;
     }

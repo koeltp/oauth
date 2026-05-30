@@ -45,7 +45,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: '',
         name: 'AdminRoot',
-        redirect: '/admin/dashboard'
+        redirect: { name: 'Dashboard' }
       },
       {
         path: 'dashboard',
@@ -70,9 +70,21 @@ const routes: RouteRecordRaw[] = [
     ]
   },
   {
-    path: '/account',
-    name: 'Account',
-    component: () => import('@/views/Account.vue'),
+    path: '/profile',
+    name: 'UserProfile',
+    component: () => import('@/views/Profile.vue'),
+    meta: { requiresUserAuth: true }
+  },
+  {
+    path: '/dashboard',
+    name: 'UserDashboard',
+    component: () => import('@/views/Dashboard.vue'),
+    meta: { requiresUserAuth: true }
+  },
+  {
+    path: '/apps',
+    name: 'MyApps',
+    component: () => import('@/views/MyApps.vue'),
     meta: { requiresUserAuth: true }
   }
 ]

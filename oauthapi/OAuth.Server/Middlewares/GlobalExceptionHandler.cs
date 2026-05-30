@@ -1,6 +1,6 @@
 using System.Net;
 using System.Text.Json;
-using System.Text.Json.Serialization;
+using OAuth.Contracts.Common;
 
 namespace OAuth.Server.Middlewares;
 
@@ -23,90 +23,78 @@ public class GlobalExceptionHandler
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "An unhandled exception occurred");
+            _logger.LogError(ex, "发生未处理的异常");
             await HandleExceptionAsync(context, ex);
         }
     }
 
     private static Task HandleExceptionAsync(HttpContext context, Exception exception)
     {
-        context.Response.ContentType = "application/json";
+        context.Response.ContentType = "application/json; charset=utf-8";
 
-        var response = new ErrorResponse();
+        string message;
 
         switch (exception)
         {
             case UnauthorizedAccessException:
                 context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
-                response.Message = "Unauthorized access";
-                response.StatusCode = (int)HttpStatusCode.Unauthorized;
+                message = "未授权访问";
                 break;
 
             case ArgumentException argEx:
                 context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
-                response.Message = argEx.Message;
-                response.StatusCode = (int)HttpStatusCode.BadRequest;
+                message = argEx.Message;
                 break;
 
             case KeyNotFoundException:
                 context.Response.StatusCode = (int)HttpStatusCode.NotFound;
-                response.Message = "Resource not found";
-                response.StatusCode = (int)HttpStatusCode.NotFound;
+                message = "资源未找到";
                 break;
 
             case Microsoft.EntityFrameworkCore.DbUpdateException:
                 context.Response.StatusCode = (int)HttpStatusCode.Conflict;
-                response.Message = "Database operation failed. Please try again later.";
-                response.StatusCode = (int)HttpStatusCode.Conflict;
+                message = "数据库操作失败，请稍后重试";
                 break;
 
             case FormatException:
                 context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
-                response.Message = "Invalid format. Please check your input.";
-                response.StatusCode = (int)HttpStatusCode.BadRequest;
+                message = "输入格式无效，请检查输入";
                 break;
 
             case InvalidOperationException:
-                context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
-                response.Message = exception.Message;
-                response.StatusCode = (int)HttpStatusCode.BadRequest;
+                if (exception.Message.Contains("用户不存在"))
+                {
+                    context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
+                    message = "用户不存在，请重新登录";
+                }
+                else
+                {
+                    context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                    message = exception.Message;
+                }
                 break;
 
             case NotSupportedException:
+            case System.Text.Json.JsonException:
                 context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
-                response.Message = "请求数据格式错误，请检查输入";
-                response.StatusCode = (int)HttpStatusCode.BadRequest;
+                message = "请求数据格式错误，请检查输入";
                 break;
 
             default:
                 context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-                response.Message = "An internal server error occurred";
-                response.StatusCode = (int)HttpStatusCode.InternalServerError;
+                message = "服务器内部错误";
                 break;
         }
 
-        var jsonOptions = new JsonSerializerOptions
+        var response = new ApiResponse
         {
-            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            Code = context.Response.StatusCode,
+            Message = message,
+            Timestamp = DateTime.UtcNow
         };
 
-        return context.Response.WriteAsync(JsonSerializer.Serialize(response, jsonOptions));
+        return context.Response.WriteAsync(JsonSerializer.Serialize(response));
     }
-}
-
-public class ErrorResponse
-{
-    [JsonPropertyName("message")]
-    public string Message { get; set; } = string.Empty;
-
-    [JsonPropertyName("statusCode")]
-    public int StatusCode { get; set; }
-
-    [JsonPropertyName("details")]
-    public string? Details { get; set; }
-
-    [JsonPropertyName("timestamp")]
-    public DateTime Timestamp { get; set; } = DateTime.UtcNow;
 }
 
 public static class GlobalExceptionHandlerExtensions

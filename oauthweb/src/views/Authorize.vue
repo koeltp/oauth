@@ -113,8 +113,8 @@ onMounted(async () => {
     clientDescription.value = res.description || ''
     
     // 如果客户端配置了 scopes，覆盖请求的 scopes
-    if (res.allowed_scopes && res.allowed_scopes.length > 0) {
-      requestedScopes.value = res.allowed_scopes
+    if (res.allowedScopes && res.allowedScopes.length > 0) {
+      requestedScopes.value = res.allowedScopes
     }
   } catch (error) {
     console.error('Failed to load client info:', error)

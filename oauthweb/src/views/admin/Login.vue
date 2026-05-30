@@ -76,8 +76,8 @@ const handleLogin = async () => {
       loading.value = true
       try {
         const res = await login(loginForm)
-        adminStore.setToken(res.access_token)
-        adminStore.setRefreshToken(res.refresh_token)
+        adminStore.setToken(res.accessToken)
+        adminStore.setRefreshToken(res.refreshToken)
         adminStore.setAdminInfo({
           id: res.id,
           username: res.username,

@@ -1,8 +1,9 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OAuth.Application.Interfaces;
+using OAuth.Contracts.Common;
+using OAuth.Contracts.User;
 using OAuth.Domain.Entities;
-using System.Security.Claims;
 
 namespace OAuth.Server.Controllers;
 
@@ -15,130 +16,157 @@ public class UserController : ControllerBase
     private readonly IUserService _userService;
     private readonly IOAuthAuthorizationService _authorizationService;
     private readonly IUserExternalAccountService _externalAccountService;
+    private readonly ICurrentUserService _currentUserService;
 
     public UserController(
         IUserService userService,
         IOAuthAuthorizationService authorizationService,
-        IUserExternalAccountService externalAccountService)
+        IUserExternalAccountService externalAccountService,
+        ICurrentUserService currentUserService)
     {
         _userService = userService;
         _authorizationService = authorizationService;
         _externalAccountService = externalAccountService;
+        _currentUserService = currentUserService;
     }
 
     [HttpGet("info")]
-    public async Task<IActionResult> GetUserInfo()
+    public async Task<ApiResponse<UserInfoResponse>> GetUserInfo()
     {
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var id))
+        var id = _currentUserService.GetUserId();
+        if (id == null)
         {
-            return Unauthorized();
+            return new ApiResponse<UserInfoResponse> { Code = 401, Message = "未授权" };
         }
 
-        var user = await _userService.GetByIdAsync(id);
+        var user = await _userService.GetByIdAsync(id.Value);
         if (user == null)
         {
-            return NotFound();
+            return new ApiResponse<UserInfoResponse> { Code = 404, Message = "用户未找到" };
         }
 
-        return Ok(new
+        return new ApiResponse<UserInfoResponse>
         {
-            id = user.Id,
-            username = user.Username,
-            email = user.Email,
-            phone = user.Phone,
-            email_verified = user.EmailVerified,
-            phone_verified = user.PhoneVerified,
-            two_factor_enabled = user.TwoFactorEnabled,
-            status = user.Status,
-            created_at = user.CreatedAt
-        });
+            Data = new UserInfoResponse
+            {
+                Id = user.Id,
+                Username = user.Username,
+                Email = user.Email,
+                Phone = user.Phone,
+                EmailVerified = user.EmailVerified,
+                PhoneVerified = user.PhoneVerified,
+                TwoFactorEnabled = user.TwoFactorEnabled,
+                Status = user.Status.ToString(),
+                CreatedAt = user.CreatedAt
+            }
+        };
     }
 
     [HttpGet("authorizations")]
-    public async Task<IActionResult> GetAuthorizations()
+    public async Task<ApiResponse<IEnumerable<AuthorizationResponse>>> GetAuthorizations()
     {
-        var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var id))
+        var id = _currentUserService.GetUserId();
+        if (id == null)
         {
-            return Unauthorized();
+            return new ApiResponse<IEnumerable<AuthorizationResponse>> { Code = 401, Message = "未授权" };
         }
 
-        var authorizations = await _authorizationService.GetByUserIdAsync(id);
-        return Ok(authorizations.Select(a => new
+        var authorizations = await _authorizationService.GetByUserIdAsync(id.Value);
+        return new ApiResponse<IEnumerable<AuthorizationResponse>>
         {
-            id = a.Id,
-            client_id = a.ClientId,
-            client_name = a.Client?.Name,
-            scope = a.Scope,
-            created_at = a.CreatedAt
-        }));
+            Data = authorizations.Select(a => new AuthorizationResponse
+            {
+                Id = a.Id,
+                ClientId = a.ClientId,
+                ClientName = a.Client?.Name,
+                Scope = a.Scope,
+                CreatedAt = a.CreatedAt
+            })
+        };
     }
 
     [HttpDelete("authorizations/{id}")]
-    public async Task<IActionResult> RevokeAuthorization(Guid id)
+    public async Task<ApiResponse<AuthorizationResponse>> RevokeAuthorization(Guid id)
     {
-        var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userIdGuid))
+        var userId = _currentUserService.GetUserId();
+        if (userId == null)
         {
-            return Unauthorized();
+            return new ApiResponse<AuthorizationResponse> { Code = 401, Message = "未授权" };
         }
 
         var authorization = await _authorizationService.GetByIdAsync(id);
         if (authorization == null)
         {
-            return NotFound();
+            return new ApiResponse<AuthorizationResponse> { Code = 404, Message = "授权未找到" };
         }
 
-        if (authorization.UserId != userIdGuid)
+        if (authorization.UserId != userId.Value)
         {
-            return Forbid();
+            return new ApiResponse<AuthorizationResponse> { Code = 403, Message = "禁止操作" };
         }
+
+        var response = new AuthorizationResponse
+        {
+            Id = authorization.Id,
+            ClientId = authorization.ClientId,
+            ClientName = authorization.Client?.Name,
+            Scope = authorization.Scope,
+            CreatedAt = authorization.CreatedAt
+        };
 
         await _authorizationService.DeleteAsync(id);
-        return Ok(new { message = "授权已撤销" });
+        return new ApiResponse<AuthorizationResponse> { Data = response, Message = "授权已撤销" };
     }
 
     [HttpGet("external/accounts")]
-    public async Task<IActionResult> GetExternalAccounts()
+    public async Task<ApiResponse<IEnumerable<BoundAccountResponse>>> GetExternalAccounts()
     {
-        var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var id))
+        var id = _currentUserService.GetUserId();
+        if (id == null)
         {
-            return Unauthorized();
+            return new ApiResponse<IEnumerable<BoundAccountResponse>> { Code = 401, Message = "未授权" };
         }
 
-        var accounts = await _externalAccountService.GetByUserIdAsync(id);
-        return Ok(accounts.Select(a => new
+        var accounts = await _externalAccountService.GetByUserIdAsync(id.Value);
+        return new ApiResponse<IEnumerable<BoundAccountResponse>>
         {
-            id = a.Id,
-            provider = a.Provider,
-            provider_user_id = a.ProviderUserId,
-            created_at = a.CreatedAt
-        }));
+            Data = accounts.Select(a => new BoundAccountResponse
+            {
+                Id = a.Id,
+                Provider = a.Provider.ToString(),
+                CreatedAt = a.CreatedAt
+            })
+        };
     }
 
     [HttpDelete("external/accounts/{id}")]
-    public async Task<IActionResult> UnbindExternalAccount(Guid id)
+    public async Task<ApiResponse<BoundAccountResponse>> UnbindExternalAccount(Guid id)
     {
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (string.IsNullOrEmpty(userId) || !Guid.TryParse(userId, out var userIdGuid))
+        var userId = _currentUserService.GetUserId();
+        if (userId == null)
         {
-            return Unauthorized();
+            return new ApiResponse<BoundAccountResponse> { Code = 401, Message = "未授权" };
         }
 
         var account = await _externalAccountService.GetByIdAsync(id);
         if (account == null)
         {
-            return NotFound();
+            return new ApiResponse<BoundAccountResponse> { Code = 404, Message = "账号未找到" };
         }
 
-        if (account.UserId != userIdGuid)
+        if (account.UserId != userId.Value)
         {
-            return Forbid();
+            return new ApiResponse<BoundAccountResponse> { Code = 403, Message = "禁止操作" };
         }
+
+        var response = new BoundAccountResponse
+        {
+            Id = account.Id,
+            Provider = account.Provider.ToString(),
+            CreatedAt = account.CreatedAt
+        };
 
         await _externalAccountService.DeleteAsync(id);
-        return Ok(new { message = "已解绑" });
+        return new ApiResponse<BoundAccountResponse> { Data = response, Message = "已解绑" };
     }
 }

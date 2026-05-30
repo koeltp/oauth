@@ -64,7 +64,11 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createdAt" label="注册时间" width="180" />
+        <el-table-column label="注册时间" width="180">
+          <template #default="{ row }">
+            {{ formatDate(row.createdAt) }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="150" align="center" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="handleView(row)">查看</el-button>
@@ -99,6 +103,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import { getUsers, updateUserStatus } from '@/api/user'
+import { formatDate } from '@/utils/format'
 
 const loading = ref(false)
 const users = ref<any[]>([])
@@ -179,7 +184,7 @@ const handleView = (row: any) => {
       <p><strong>邮箱验证：</strong>${row.emailVerified ? '已验证' : '未验证'}</p>
       <p><strong>2FA：</strong>${row.twoFactorEnabled ? '已开启' : '未开启'}</p>
       <p><strong>状态：</strong>${getStatusText(row.status)}</p>
-      <p><strong>注册时间：</strong>${row.createdAt}</p>
+      <p><strong>注册时间：</strong>${formatDate(row.createdAt)}</p>
     </div>
   `, '用户详情', {
     dangerouslyUseHTMLString: true,
