@@ -84,11 +84,11 @@ const loadBoundProviders = async () => {
 }
 
 const handleBindGithub = () => {
-  window.location.href = '/api/external/github/authorize'
+  window.location.href = '/api/1.0/external/github/authorize'
 }
 
 const handleBindWechat = () => {
-  window.location.href = '/api/external/wechat/authorize'
+  window.location.href = '/api/1.0/external/wechat/authorize'
 }
 
 const handleRevoke = async (row: any) => {

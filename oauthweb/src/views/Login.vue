@@ -31,7 +31,7 @@
       </div>
 
       <div class="admin-link">
-        <router-link to="/admin/login">管理员登录</router-link>
+        <a href="https://ssoadmin.taipi.top" target="_blank">管理员登录</a>
       </div>
     </div>
   </div>
@@ -53,11 +53,12 @@ function onTwoFaRequired(_userId: string) {
 }
 
 function handleGithubLogin() {
-  window.location.href = '/api/external/github/authorize'
+  const callbackUrl = `${window.location.origin}/auth/github/callback`
+  window.location.href = `/api/1.0/external/github/authorize?redirect_uri=${encodeURIComponent(callbackUrl)}`
 }
 
 function handleWechatLogin() {
-  window.location.href = '/api/external/wechat/authorize'
+  window.location.href = '/api/1.0/external/wechat/authorize'
 }
 </script>
 

@@ -50,8 +50,8 @@
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100" align="center">
           <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)" size="small">
-              {{ getStatusText(row.status) }}
+            <el-tag :type="getClientStatusType(row.status)" size="small">
+              {{ getClientStatusText(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -112,7 +112,7 @@
       <el-descriptions :column="2" border>
         <el-descriptions-item label="应用名称">{{ currentClient?.name }}</el-descriptions-item>
         <el-descriptions-item label="状态">
-          <el-tag :type="getStatusType(currentClient?.status)">{{ getStatusText(currentClient?.status) }}</el-tag>
+          <el-tag :type="getClientStatusType(currentClient?.status)">{{ getClientStatusText(currentClient?.status) }}</el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="Client ID" :span="2">{{ currentClient?.clientId }}</el-descriptions-item>
         <el-descriptions-item label="应用描述" :span="2">{{ currentClient?.description || '-' }}</el-descriptions-item>
@@ -153,6 +153,7 @@ import { Plus, Search } from '@element-plus/icons-vue'
 import { getClients, approveClient, rejectClient, deleteClient } from '@/api/client'
 import api from '@/utils/api'
 import { formatDate } from '@/utils/format'
+import { getClientStatusType, getClientStatusText } from '@/constants'
 
 const loading = ref(false)
 const clients = ref<any[]>([])
@@ -202,24 +203,6 @@ const loadClients = async () => {
   } finally {
     loading.value = false
   }
-}
-
-const getStatusType = (status: string) => {
-  const map: Record<string, any> = {
-    'Pending': 'warning',
-    'Approved': 'success',
-    'Rejected': 'danger'
-  }
-  return map[status] || 'info'
-}
-
-const getStatusText = (status: string) => {
-  const map: Record<string, string> = {
-    'Pending': '待审核',
-    'Approved': '已批准',
-    'Rejected': '已拒绝'
-  }
-  return map[status] || status
 }
 
 const handleSearch = () => {
@@ -311,6 +294,18 @@ const confirmReject = async () => {
 const handleView = (row: any) => {
   currentClient.value = row
   showDetailDialog.value = true
+}
+
+const handleApproveFromDetail = () => {
+  if (currentClient.value) {
+    handleApprove(currentClient.value)
+  }
+}
+
+const handleRejectFromDetail = () => {
+  if (currentClient.value) {
+    handleReject(currentClient.value)
+  }
 }
 
 const handleDelete = async (row: any) => {

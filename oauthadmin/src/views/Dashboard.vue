@@ -49,20 +49,20 @@
       </el-col>
     </el-row>
 
-    <el-card class="recent-activity" shadow="never">
+    <el-card class="recent-activity" shadow="never" v-loading="loading">
       <template #header>
         <span>最近活动</span>
       </template>
       <el-timeline>
-        <el-timeline-item timestamp="2024-01-15 10:30" placement="top">
-          <p>用户 admin 批准了客户端 "MyApp"</p>
+        <el-timeline-item
+          v-for="activity in activities"
+          :key="activity.createdAt + activity.description"
+          :timestamp="formatDate(activity.createdAt)"
+          placement="top"
+        >
+          <p>{{ activity.description }}</p>
         </el-timeline-item>
-        <el-timeline-item timestamp="2024-01-15 09:15" placement="top">
-          <p>新用户 test@example.com 注册</p>
-        </el-timeline-item>
-        <el-timeline-item timestamp="2024-01-14 16:45" placement="top">
-          <p>客户端 "DemoApp" 提交审核</p>
-        </el-timeline-item>
+        <el-empty v-if="activities.length === 0 && !loading" description="暂无活动" />
       </el-timeline>
     </el-card>
   </div>
@@ -71,7 +71,10 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { Monitor, Checked , Refresh, User } from '@element-plus/icons-vue'
-import adminApi from '@/utils/admin-api'
+import api from '@/utils/api'
+import { formatDate } from '@/utils/format'
+
+const loading = ref(false)
 
 const stats = ref({
   pendingClients: 0,
@@ -80,12 +83,27 @@ const stats = ref({
   totalUsers: 0
 })
 
+interface RecentActivity {
+  action: string
+  description: string
+  adminName: string
+  createdAt: string
+}
+
+const activities = ref<RecentActivity[]>([])
+
 onMounted(async () => {
+  loading.value = true
   try {
-    const res: any = await adminApi.get('/admin/dashboard')
+    const res: any = await api.get('/admin/dashboard')
     stats.value = res
+
+    const activityRes: any = await api.get('/admin/dashboard/recent-activities')
+    activities.value = activityRes || []
   } catch (error) {
     console.error('Failed to load dashboard')
+  } finally {
+    loading.value = false
   }
 })
 </script>

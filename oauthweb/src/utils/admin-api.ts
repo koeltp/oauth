@@ -1,6 +1,5 @@
 import { createHttp } from './http'
 import { useAdminStore } from '@/stores/admin'
-import router from '@/router'
 import { adminRefreshTokenApi } from '@/api/refresh-token'
 
 export const adminApi = createHttp({
@@ -11,7 +10,6 @@ export const adminApi = createHttp({
   refreshTokenSetter: (token) => useAdminStore().setRefreshToken(token),
   logoutHandler: () => {
     useAdminStore().logout()
-    router.push('/admin/login')
   },
   refreshTokenApi: adminRefreshTokenApi,
   loginPath: '/admin/login'

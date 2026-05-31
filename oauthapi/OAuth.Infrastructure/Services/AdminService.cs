@@ -1,5 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using OAuth.Application.Interfaces;
+using OAuth.Application.Mappers;
+using OAuth.Contracts.Admin;
+using OAuth.Contracts.Common;
 using OAuth.Domain.Entities;
 using OAuth.Infrastructure.Data;
 
@@ -12,6 +15,44 @@ public class AdminService : IAdminService
     public AdminService(ApplicationDbContext context)
     {
         _context = context;
+    }
+
+    public async Task<PagedResultResponse<AdminDto>> GetAllAsync(int page, int pageSize, string? keyword)
+    {
+        var query = _context.Admins.AsQueryable();
+
+        if (!string.IsNullOrWhiteSpace(keyword))
+        {
+            query = query.Where(a =>
+                a.Username.Contains(keyword) ||
+                (a.Email != null && a.Email.Contains(keyword)));
+        }
+
+        var total = await query.CountAsync();
+
+        var items = await query
+            .OrderByDescending(a => a.CreatedAt)
+            .Skip((page - 1) * pageSize)
+            .Take(pageSize)
+            .Select(a => new AdminDto
+            {
+                Id = a.Id,
+                Username = a.Username,
+                Email = a.Email,
+                Role = a.Role.ToString(),
+                Status = a.Status.ToString(),
+                CreatedAt = a.CreatedAt,
+                LastLoginAt = a.LastLoginAt
+            })
+            .ToListAsync();
+
+        return new PagedResultResponse<AdminDto>
+        {
+            Data = items,
+            Total = total,
+            Page = page,
+            PageSize = pageSize
+        };
     }
 
     public async Task<Admin?> GetByIdAsync(Guid id)
@@ -47,6 +88,16 @@ public class AdminService : IAdminService
     {
         _context.Admins.Update(admin);
         await _context.SaveChangesAsync();
+    }
+
+    public async Task DeleteAsync(Guid id)
+    {
+        var admin = await _context.Admins.FindAsync(id);
+        if (admin != null)
+        {
+            _context.Admins.Remove(admin);
+            await _context.SaveChangesAsync();
+        }
     }
 
     public async Task<(bool Success, string Message)> ChangePasswordAsync(Guid adminId, string currentPassword, string newPassword)

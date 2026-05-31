@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 using OAuth.Application.Interfaces;
+using OAuth.Application.Mappers;
 using OAuth.Contracts.Admin;
 using OAuth.Contracts.Common;
 using OAuth.Infrastructure.Options;
@@ -39,16 +40,7 @@ public class ProfileController : ControllerBase
 
         return new ApiResponse<ProfileResponse>
         {
-            Data = new ProfileResponse
-            {
-                Id = admin.Id,
-                Username = admin.Username,
-                Email = admin.Email,
-                AvatarUrl = admin.AvatarUrl,
-                Role = admin.Role.ToString(),
-                CreatedAt = admin.CreatedAt,
-                LastLoginAt = admin.LastLoginAt
-            }
+            Data = admin.ToProfileResponse()
         };
     }
 
@@ -72,16 +64,7 @@ public class ProfileController : ControllerBase
 
         return new ApiResponse<ProfileResponse>
         {
-            Data = new ProfileResponse
-            {
-                Id = admin.Id,
-                Username = admin.Username,
-                Email = admin.Email,
-                AvatarUrl = admin.AvatarUrl,
-                Role = admin.Role.ToString(),
-                CreatedAt = admin.CreatedAt,
-                LastLoginAt = admin.LastLoginAt
-            }
+            Data = admin.ToProfileResponse()
         };
     }
 

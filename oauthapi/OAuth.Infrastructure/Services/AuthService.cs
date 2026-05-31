@@ -58,7 +58,7 @@ public class AuthService : IAuthService
 
         if (user.Status != UserStatus.Active)
         {
-            throw new UnauthorizedAccessException("账户未激活");
+            throw new UnauthorizedAccessException(user.Status == UserStatus.Banned ? "账户已被禁用" : "账户未激活");
         }
 
         if (user.TwoFactorEnabled)
@@ -96,6 +96,11 @@ public class AuthService : IAuthService
             throw new UnauthorizedAccessException("用户不存在");
         }
 
+        if (user.Status != UserStatus.Active)
+        {
+            throw new UnauthorizedAccessException(user.Status == UserStatus.Banned ? "账户已被禁用" : "账户未激活");
+        }
+
         if (user.TwoFactorEnabled)
         {
             throw new TwoFactorRequiredException(user.Id);
@@ -115,6 +120,11 @@ public class AuthService : IAuthService
         if (user == null)
         {
             throw new InvalidOperationException("用户不存在");
+        }
+
+        if (user.Status != UserStatus.Active)
+        {
+            throw new InvalidOperationException(user.Status == UserStatus.Banned ? "账户已被禁用" : "账户未激活");
         }
 
         if (!user.TwoFactorEnabled || string.IsNullOrEmpty(user.TwoFactorSecret))

@@ -11,4 +11,5 @@ public interface IUserService
     Task<bool> ValidatePasswordAsync(User user, string password);
     Task UpdateAsync(User user);
     Task<int> GetTotalUsersCount();
+    Task<List<User>> GetRecentUsersAsync(int count);
 }

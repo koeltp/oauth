@@ -59,8 +59,8 @@
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100" align="center">
           <template #default="{ row }">
-            <el-tag :type="getStatusType(row.status)" size="small">
-              {{ getStatusText(row.status) }}
+            <el-tag :type="getUserStatusType(row.status)" size="small">
+              {{ getUserStatusText(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -104,6 +104,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search } from '@element-plus/icons-vue'
 import { getUsers, updateUserStatus } from '@/api/user'
 import { formatDate } from '@/utils/format'
+import { getUserStatusType, getUserStatusText } from '@/constants'
 
 const loading = ref(false)
 const users = ref<any[]>([])
@@ -136,23 +137,7 @@ const loadUsers = async () => {
   }
 }
 
-const getStatusType = (status: string) => {
-  const map: Record<string, any> = {
-    'Active': 'success',
-    'Inactive': 'info',
-    'Banned': 'danger'
-  }
-  return map[status] || 'info'
-}
 
-const getStatusText = (status: string) => {
-  const map: Record<string, string> = {
-    'Active': '正常',
-    'Inactive': '未激活',
-    'Banned': '已禁用'
-  }
-  return map[status] || status
-}
 
 const handleSearch = () => {
   currentPage.value = 1
@@ -183,7 +168,7 @@ const handleView = (row: any) => {
       <p><strong>手机号：</strong>${row.phone || '-'}</p>
       <p><strong>邮箱验证：</strong>${row.emailVerified ? '已验证' : '未验证'}</p>
       <p><strong>2FA：</strong>${row.twoFactorEnabled ? '已开启' : '未开启'}</p>
-      <p><strong>状态：</strong>${getStatusText(row.status)}</p>
+      <p><strong>状态：</strong>${getUserStatusText(row.status)}</p>
       <p><strong>注册时间：</strong>${formatDate(row.createdAt)}</p>
     </div>
   `, '用户详情', {

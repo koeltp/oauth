@@ -67,9 +67,10 @@ const showUserMenu = ref(false)
 const avatarLoadFailed = ref(false)
 
 const menuItems = ref([
-  { name: '仪表盘', path: '/admin/dashboard', icon: markRaw(Grid)  },
-  { name: '客户端管理', path: '/admin/clients', icon: markRaw(Monitor)  },
-  { name: '用户管理', path: '/admin/users', icon: markRaw(User) }
+  { name: '仪表盘', path: '/dashboard', icon: markRaw(Grid)  },
+  { name: '客户端管理', path: '/clients', icon: markRaw(Monitor)  },
+  { name: '用户管理', path: '/users', icon: markRaw(User) },
+  { name: '管理员管理', path: '/admins', icon: markRaw(User) }
 ])
 
 watch(() => adminStore.adminInfo?.avatarUrl, () => {
@@ -86,14 +87,14 @@ const toggleUserMenu = () => {
 
 const handleSettings = () => {
   showUserMenu.value = false
-  router.push('/admin/profile')
+  router.push('/profile')
 }
 
 const handleLogout = () => {
   showUserMenu.value = false
   adminStore.logout()
   ElMessage.success('退出成功')
-  router.push('/admin/login')
+  router.push('/login')
 }
 </script>
 

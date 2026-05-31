@@ -23,6 +23,7 @@
             placeholder="密码" 
             size="large"
             :prefix-icon="Lock"
+            show-password
           />
         </el-form-item>
 
@@ -39,7 +40,7 @@
         </el-form-item>
 
         <el-form-item class="back-link">
-          <router-link to="/login">返回用户登录</router-link>
+          <a href="http://localhost:3000/login" target="_blank">返回用户登录</a>
         </el-form-item>
       </el-form>
     </div>
@@ -86,7 +87,7 @@ const handleLogin = async () => {
           avatarUrl: res.avatarUrl
         })
         ElMessage.success('登录成功')
-        router.push('/admin/dashboard')
+        router.push('/dashboard')
       } catch {
         loading.value = false
       }

@@ -1,0 +1,50 @@
+services:
+  # ==================== .NET API 后端 ====================
+  api:
+    image: registry.cn-shenzhen.aliyuncs.com/tmd/sso:api
+    container_name: oauth-api
+    restart: unless-stopped
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://+:80
+    ports:
+      - "8086:80"
+    volumes:
+      - api_uploads:/app/wwwroot/uploads
+      - ../oauthapi/OAuth.Server/appsettings.Production.json:/app/appsettings.Production.json:ro
+    networks:
+      - oauth-network
+
+  # ==================== 用户前端（oauthweb）====================
+  web:
+    image: registry.cn-shenzhen.aliyuncs.com/tmd/sso:web
+    container_name: oauth-web
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+    networks:
+      - oauth-network
+
+  # ==================== 管理前端（oauthadmin）====================
+  admin:
+    image: registry.cn-shenzhen.aliyuncs.com/tmd/sso:admin
+    container_name: oauth-admin
+    restart: unless-stopped
+    ports:
+      - "3001:80"
+    depends_on:
+      - api
+    networks:
+      - oauth-network
+
+# ==================== 数据卷 ====================
+volumes:
+  api_uploads:
+    driver: local
+
+# ==================== 网络 ====================
+networks:
+  oauth-network:
+    driver: bridge

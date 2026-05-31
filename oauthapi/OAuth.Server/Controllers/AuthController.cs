@@ -150,6 +150,10 @@ public class AuthController : ControllerBase
         {
             return new ApiResponse<LoginResponse> { Data = new LoginResponse { Require2FA = true, UserId = ex.UserId } };
         }
+        catch (UnauthorizedAccessException ex)
+        {
+            return new ApiResponse<LoginResponse> { Code = 401, Message = ex.Message };
+        }
         catch (InvalidOperationException ex)
         {
             return new ApiResponse<LoginResponse> { Code = 400, Message = ex.Message };

@@ -53,4 +53,12 @@ public class UserService : IUserService
     {
         return await _context.Users.CountAsync();
     }
+
+    public async Task<List<User>> GetRecentUsersAsync(int count)
+    {
+        return await _context.Users
+            .OrderByDescending(u => u.CreatedAt)
+            .Take(count)
+            .ToListAsync();
+    }
 }

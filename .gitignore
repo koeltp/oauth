@@ -9,10 +9,10 @@ obj/
 *.userprefs
 
 # Node / Vue
-oauthweb/node_modules/
-oauthweb/dist/
-oauthweb/.happypack/
-oauthweb/*.log
+node_modules/
+dist/
+.happypack/
+*.log
 
 # IDE
 .vs/
@@ -35,3 +35,6 @@ docker-compose.override.yml
 # Logs
 *.log
 logs/
+
+appsettings.Development.json
+appsettings.Production.json

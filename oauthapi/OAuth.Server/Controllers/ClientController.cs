@@ -34,7 +34,7 @@ public class ClientController : ControllerBase
     }
 
     [HttpGet("pending")]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize(Policy = AuthPolicies.AdminOnly)]
     public async Task<ApiResponse<IEnumerable<ClientResponse>>> GetPending()
     {
         var clients = await _clientService.GetPendingAsync();
@@ -198,7 +198,7 @@ public class ClientController : ControllerBase
     }
 
     [HttpPost("{id}/approve")]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize(Policy = AuthPolicies.AdminOnly)]
     public async Task<ApiResponse<ClientResponse>> Approve(Guid id)
     {
         var adminId = _currentUserService.GetUserId();
@@ -217,7 +217,7 @@ public class ClientController : ControllerBase
     }
 
     [HttpPost("{id}/reject")]
-    [Authorize(Policy = "AdminOnly")]
+    [Authorize(Policy = AuthPolicies.AdminOnly)]
     public async Task<ApiResponse<ClientResponse>> Reject(Guid id)
     {
         var adminId = _currentUserService.GetUserId();

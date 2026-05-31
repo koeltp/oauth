@@ -8,6 +8,7 @@ public class Admin
     public string? Email { get; set; }
     public string? AvatarUrl { get; set; }
     public AdminRole Role { get; set; } = AdminRole.Operator;
+    public AdminStatus Status { get; set; } = AdminStatus.Active;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
     public DateTime? LastLoginAt { get; set; }
@@ -21,4 +22,10 @@ public enum AdminRole
     SuperAdmin,
     Admin,
     Operator
+}
+
+public enum AdminStatus
+{
+    Active,
+    Inactive
 }

@@ -1,0 +1,82 @@
+import api from '@/utils/api'
+
+export interface AdminLoginResponse {
+  id: string
+  username: string
+  email: string
+  role: string
+  avatarUrl: string | null
+  accessToken: string
+  refreshToken: string
+  expiresIn: number
+  refreshExpiresIn: number
+}
+
+export interface AdminProfileResponse {
+  id: string
+  username: string
+  email: string | null
+  avatarUrl: string | null
+  role: string
+  createdAt: string
+  lastLoginAt: string | null
+}
+
+export interface AdminLoginRequest {
+  username: string
+  password: string
+}
+
+export interface UpdateProfileRequest {
+  username?: string
+  email?: string
+}
+
+export interface UpdatePasswordRequest {
+  currentPassword: string
+  newPassword: string
+}
+
+export interface AvatarUploadResponse {
+  message: string
+  avatarUrl: string
+}
+
+export const login = (data: AdminLoginRequest): Promise<AdminLoginResponse> => {
+  return api({
+    url: '/admin/login',
+    method: 'post',
+    data
+  })
+}
+
+export const getProfile = (): Promise<AdminProfileResponse> => {
+  return api({
+    url: '/admin/profile',
+    method: 'get'
+  })
+}
+
+export const updateProfile = (data: UpdateProfileRequest): Promise<void> => {
+  return api({
+    url: '/admin/profile',
+    method: 'put',
+    data
+  })
+}
+
+export const uploadAvatar = (data: FormData): Promise<AvatarUploadResponse> => {
+  return api({
+    url: '/admin/profile/avatar',
+    method: 'post',
+    data
+  })
+}
+
+export const updatePassword = (data: UpdatePasswordRequest): Promise<void> => {
+  return api({
+    url: '/admin/profile/password',
+    method: 'put',
+    data
+  })
+}

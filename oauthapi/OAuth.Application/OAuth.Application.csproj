@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\OAuth.Domain\OAuth.Domain.csproj" />
+    <ProjectReference Include="..\OAuth.Contracts\OAuth.Contracts.csproj" />
   </ItemGroup>
 
   <ItemGroup>

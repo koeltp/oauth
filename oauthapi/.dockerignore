@@ -1,0 +1,14 @@
+# .NET publish output
+**/bin/
+**/obj/
+*.user
+*.suo
+
+# IDE
+.idea/
+.vs/
+.vscode/
+
+# Git
+.git/
+.gitignore

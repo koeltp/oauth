@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OAuth.Application.Interfaces;
+using OAuth.Contracts.Common;
 using OAuth.Infrastructure.Data;
 using OAuth.Infrastructure.Extensions;
 using OAuth.Infrastructure.Options;
@@ -111,17 +112,15 @@ builder.Services.AddAuthentication(options =>
 });
 
 // Authorization
-builder.Services.AddAuthorization(options =>
-{
-    options.AddPolicy("AdminOnly", policy =>
+builder.Services.AddAuthorizationBuilder()
+    .AddPolicy(AuthPolicies.AdminOnly, policy =>
     {
         policy.RequireClaim(ClaimTypes.Role, "Admin", "SuperAdmin", "Operator");
-    });
-    options.AddPolicy("SuperAdminOnly", policy =>
+    })
+    .AddPolicy(AuthPolicies.SuperAdminOnly, policy =>
     {
         policy.RequireClaim(ClaimTypes.Role, "SuperAdmin");
     });
-});
 
 // HttpClient
 builder.Services.AddHttpClient();
