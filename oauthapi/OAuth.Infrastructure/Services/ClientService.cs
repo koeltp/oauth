@@ -50,7 +50,7 @@ public class ClientService : IClientService
         return await _context.Clients.FirstOrDefaultAsync(c => c.ClientId == clientId);
     }
 
-    public async Task<(Client Client, string ClientSecret)> CreateAsync(string name, string? description, string redirectUris, string allowedScopes, Guid? userId = null)
+    public async Task<(Client Client, string ClientSecret)> CreateAsync(string name, string? description, string redirectUris, string allowedScopes, Guid? userId = null, bool isPublic = false)
     {
         if (userId.HasValue)
         {
@@ -61,16 +61,17 @@ public class ClientService : IClientService
             }
         }
 
-        var clientSecret = OpenIddictIdentifier.GenerateClientSecret();
+        var clientSecret = isPublic ? string.Empty : OpenIddictIdentifier.GenerateClientSecret();
         var client = new Client
         {
             ClientId = OpenIddictIdentifier.GenerateClientId(),
-            ClientSecretHash = BCrypt.Net.BCrypt.HashPassword(clientSecret),
-            ClientSecretEncrypted = _encryptionService.Encrypt(clientSecret),
+            ClientSecretHash = isPublic ? string.Empty : BCrypt.Net.BCrypt.HashPassword(clientSecret),
+            ClientSecretEncrypted = isPublic ? string.Empty : _encryptionService.Encrypt(clientSecret),
             Name = name,
             Description = description,
             RedirectUris = redirectUris,
             AllowedScopes = allowedScopes,
+            IsPublic = isPublic,
             UserId = userId
         };
 

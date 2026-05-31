@@ -1,10 +1,11 @@
 import { ref, type Ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { useUserStore } from '@/stores/user'
 
 export function useLogin() {
   const router = useRouter()
+  const route = useRoute()
   const userStore = useUserStore()
   const loading = ref(false)
 
@@ -23,7 +24,13 @@ export function useLogin() {
       createdAt: res.createdAt || ''
     })
     ElMessage.success('登录成功')
-    router.push('/dashboard')
+
+    const redirectUrl = route.query.redirect as string
+    if (redirectUrl) {
+      router.push(redirectUrl)
+    } else {
+      router.push('/dashboard')
+    }
   }
 
   function startCountdown(countdown: Ref<number>) {

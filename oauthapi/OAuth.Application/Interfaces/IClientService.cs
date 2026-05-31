@@ -9,7 +9,7 @@ public interface IClientService
     Task<List<Client>> GetByUserIdAsync(Guid userId);
     Task<Client?> GetByIdAsync(Guid id);
     Task<Client?> GetByClientIdAsync(string clientId);
-    Task<(Client Client, string ClientSecret)> CreateAsync(string name, string? description, string redirectUris, string allowedScopes, Guid? userId = null);
+    Task<(Client Client, string ClientSecret)> CreateAsync(string name, string? description, string redirectUris, string allowedScopes, Guid? userId = null, bool isPublic = false);
     Task SubmitAsync(Guid id);
     Task ApproveAsync(Guid id, Guid reviewerId);
     Task RejectAsync(Guid id, Guid reviewerId);

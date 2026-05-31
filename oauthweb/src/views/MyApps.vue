@@ -99,31 +99,14 @@ import { CopyDocument, Download } from '@element-plus/icons-vue'
 import UserLayout from '@/layouts/UserLayout.vue'
 import api from '@/utils/api'
 import { formatDate } from '@/utils/format'
+import { getClientStatusType, getClientStatusText } from '@/constants'
 
 const router = useRouter()
 const clients = ref<any[]>([])
 const loading = ref(false)
 
-// 状态标签
-const statusType = (status: string) => {
-  switch (status) {
-    case 'Approved': return 'success'
-    case 'Pending': return 'warning'
-    case 'Draft': return 'info'
-    case 'Rejected': return 'danger'
-    default: return 'info'
-  }
-}
-
-const statusLabel = (status: string) => {
-  switch (status) {
-    case 'Approved': return '已通过'
-    case 'Pending': return '待审核'
-    case 'Draft': return '草稿'
-    case 'Rejected': return '已拒绝'
-    default: return status
-  }
-}
+const statusType = getClientStatusType
+const statusLabel = getClientStatusText
 
 // 加载列表
 const loadClients = async () => {

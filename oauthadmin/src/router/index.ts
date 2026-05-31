@@ -10,7 +10,7 @@ const routes: RouteRecordRaw[] = [
   },
   {
     path: '/',
-    component: () => import('@/views/Index.vue'),
+    component: () => import('@/layouts/AdminLayout.vue'),
     meta: { requiresAuth: true },
     children: [
       {

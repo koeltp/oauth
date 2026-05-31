@@ -69,7 +69,7 @@ router.beforeEach((to, _from, next) => {
   }
   
   if (to.meta.requiresUserAuth && !userStore.isLoggedIn) {
-    next('/login')
+    next({ path: '/login', query: { redirect: to.fullPath } })
     return
   }
   

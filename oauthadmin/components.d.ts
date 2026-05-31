@@ -28,11 +28,8 @@ declare module 'vue' {
     ElTag: typeof import('element-plus/es')['ElTag']
     ElTimeline: typeof import('element-plus/es')['ElTimeline']
     ElTimelineItem: typeof import('element-plus/es')['ElTimelineItem']
-    EmailCodeLoginForm: typeof import('./src/components/login/EmailCodeLoginForm.vue')['default']
-    PasswordLoginForm: typeof import('./src/components/login/PasswordLoginForm.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
-    SmsCodeLoginForm: typeof import('./src/components/login/SmsCodeLoginForm.vue')['default']
   }
   export interface ComponentCustomProperties {
     vLoading: typeof import('element-plus/es')['ElLoadingDirective']

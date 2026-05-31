@@ -4,7 +4,10 @@
       <router-link to="/" class="home-icon" title="返回首页">
         <el-icon><HomeFilled /></el-icon>
       </router-link>
-      <h1 class="title">OAuth Server</h1>
+      <h1 class="title">
+        <img src="@/assets/logo.png" height="32" alt="logo" style="margin-right: 8px;" />
+        OAuth Server
+      </h1>
 
       <el-tabs v-model="activeTab" class="login-tabs">
         <el-tab-pane label="密码登录" name="password">
@@ -21,7 +24,9 @@
       <div class="external-login">
         <el-divider>其他登录方式</el-divider>
         <div class="external-buttons">
-          <el-button @click="handleGithubLogin" :icon="Link" circle size="large" />
+          <el-button @click="handleGithubLogin" circle size="large">
+            <GithubIcon />
+          </el-button>
           <el-button @click="handleWechatLogin" :icon="ChatDotRound" circle size="large" />
         </div>
       </div>
@@ -31,6 +36,7 @@
       </div>
 
       <div class="admin-link">
+        <el-icon style="margin-right: 4px; vertical-align: middle;" :size="14"><UserFilled /></el-icon>
         <a href="https://ssoadmin.taipi.top" target="_blank">管理员登录</a>
       </div>
     </div>
@@ -39,12 +45,15 @@
 
 <script setup lang="ts">
 import { ref } from 'vue'
+import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Link, ChatDotRound, HomeFilled } from '@element-plus/icons-vue'
+import { ChatDotRound, HomeFilled, UserFilled } from '@element-plus/icons-vue'
+import GithubIcon from '@/components/GithubIcon.vue'
 import PasswordLoginForm from '@/components/login/PasswordLoginForm.vue'
 import EmailCodeLoginForm from '@/components/login/EmailCodeLoginForm.vue'
 import SmsCodeLoginForm from '@/components/login/SmsCodeLoginForm.vue'
 
+const route = useRoute()
 const activeTab = ref('password')
 
 function onTwoFaRequired(_userId: string) {
@@ -53,12 +62,21 @@ function onTwoFaRequired(_userId: string) {
 }
 
 function handleGithubLogin() {
-  const callbackUrl = `${window.location.origin}/auth/github/callback`
-  window.location.href = `/api/1.0/external/github/authorize?redirect_uri=${encodeURIComponent(callbackUrl)}`
+  const redirectUrl = route.query.redirect as string || ''
+  let authorizeUrl = '/api/1.0/external/github/authorize?mode=login'
+  if (redirectUrl) {
+    authorizeUrl += `&redirect_url=${encodeURIComponent(redirectUrl)}`
+  }
+  window.location.href = authorizeUrl
 }
 
 function handleWechatLogin() {
-  window.location.href = '/api/1.0/external/wechat/authorize'
+  const redirectUrl = route.query.redirect as string || ''
+  let authorizeUrl = '/api/1.0/external/wechat/authorize?mode=login'
+  if (redirectUrl) {
+    authorizeUrl += `&redirect_url=${encodeURIComponent(redirectUrl)}`
+  }
+  window.location.href = authorizeUrl
 }
 </script>
 

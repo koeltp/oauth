@@ -9,6 +9,9 @@ public class Authorization
     public Client Client { get; set; } = null!;
     public string Code { get; set; } = string.Empty;
     public string Scope { get; set; } = string.Empty;
+    public string? RedirectUri { get; set; }
+    public string? CodeChallenge { get; set; }
+    public string? CodeChallengeMethod { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? CodeExpiresAt { get; set; }
     public bool CodeUsed { get; set; } = false;

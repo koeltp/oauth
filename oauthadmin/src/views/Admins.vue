@@ -33,15 +33,15 @@
         </el-table-column>
         <el-table-column prop="role" label="角色" width="120" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.role === 'SuperAdmin' ? 'danger' : row.role === 'Admin' ? 'warning' : 'info'" size="small">
+            <el-tag :type="getRoleType(row.role)" size="small">
               {{ getRoleText(row.role) }}
             </el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'Active' ? 'success' : 'info'" size="small">
-              {{ row.status === 'Active' ? '正常' : '已禁用' }}
+            <el-tag :type="getAdminStatusType(row.status)" size="small">
+              {{ getAdminStatusText(row.status) }}
             </el-tag>
           </template>
         </el-table-column>
@@ -125,7 +125,7 @@ import type { FormInstance, FormRules } from 'element-plus'
 import { getAdmins, createAdmin, updateAdmin, deleteAdmin, updateAdminStatus } from '@/api/admins'
 import type { AdminDto } from '@/api/admins'
 import { formatDate } from '@/utils/format'
-import { getRoleText } from '@/constants'
+import { getRoleText, getRoleType, getAdminStatusType, getAdminStatusText } from '@/constants'
 
 const loading = ref(false)
 const admins = ref<AdminDto[]>([])

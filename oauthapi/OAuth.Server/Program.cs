@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using OAuth.Application.Interfaces;
@@ -10,6 +11,7 @@ using OAuth.Infrastructure.Options;
 using OAuth.Server.Middlewares;
 using OAuth.Server.Services;
 using OpenIddict.Server;
+using StackExchange.Redis;
 using System.Security.Claims;
 using System.Text.Json.Serialization;
 
@@ -38,6 +40,11 @@ builder.Services.AddStackExchangeRedisCache(options =>
 {
     options.Configuration = redisConnectionString;
 });
+
+// Data Protection - 持久化密钥到 Redis
+var redisConnection = ConnectionMultiplexer.Connect(redisConnectionString);
+builder.Services.AddDataProtection()
+    .PersistKeysToStackExchangeRedis(redisConnection);
 
 // OpenIddict
 builder.Services.AddOpenIddict()

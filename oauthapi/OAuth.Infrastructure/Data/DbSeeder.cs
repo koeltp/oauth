@@ -111,7 +111,7 @@ public static class DbSeeder
     {
         if (!await context.Clients.AnyAsync())
         {
-            var users = await context.Users.Take(2).ToListAsync();
+            var users = await context.Users.OrderByDescending(u => u.CreatedAt).Take(2).ToListAsync();
 
             var clientSecretA = OpenIddictIdentifier.GenerateClientSecret();
             var clientSecretB = OpenIddictIdentifier.GenerateClientSecret();

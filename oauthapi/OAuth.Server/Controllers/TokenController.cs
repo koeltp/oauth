@@ -4,6 +4,8 @@ using OpenIddict.Server.AspNetCore;
 using OpenIddict.Abstractions;
 using OAuth.Application.Interfaces;
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 
 namespace OAuth.Server.Controllers;
 
@@ -79,21 +81,31 @@ public class TokenController : Controller
         var code = Request.Form["code"].ToString();
         var clientId = Request.Form["client_id"].ToString();
         var clientSecret = Request.Form["client_secret"].ToString();
+        var redirectUri = Request.Form["redirect_uri"].ToString();
+        var codeVerifier = Request.Form["code_verifier"].ToString();
 
         if (string.IsNullOrEmpty(code))
         {
             return BadRequest(new { error = "invalid_grant" });
         }
 
-        if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(clientSecret))
+        if (string.IsNullOrEmpty(clientId))
         {
             return BadRequest(new { error = "invalid_client" });
         }
 
         var client = await _clientService.GetByClientIdAsync(clientId);
-        if (client == null || !BCrypt.Net.BCrypt.Verify(clientSecret, client.ClientSecretHash))
+        if (client == null)
         {
             return BadRequest(new { error = "invalid_client" });
+        }
+
+        if (!client.IsPublic)
+        {
+            if (string.IsNullOrEmpty(clientSecret) || !BCrypt.Net.BCrypt.Verify(clientSecret, client.ClientSecretHash))
+            {
+                return BadRequest(new { error = "invalid_client" });
+            }
         }
 
         var authorization = await _authorizationService.GetByCodeAsync(code);
@@ -110,6 +122,32 @@ public class TokenController : Controller
         if (authorization.CodeExpiresAt.HasValue && authorization.CodeExpiresAt.Value <= DateTime.UtcNow)
         {
             return BadRequest(new { error = "invalid_grant", error_description = "Authorization code has expired" });
+        }
+
+        if (!string.IsNullOrEmpty(authorization.RedirectUri) &&
+            !string.Equals(authorization.RedirectUri, redirectUri, StringComparison.Ordinal))
+        {
+            return BadRequest(new { error = "invalid_grant", error_description = "redirect_uri mismatch" });
+        }
+
+        if (!string.IsNullOrEmpty(authorization.CodeChallenge))
+        {
+            if (string.IsNullOrEmpty(codeVerifier))
+            {
+                return BadRequest(new { error = "invalid_grant", error_description = "code_verifier is required" });
+            }
+
+            var expectedChallenge = authorization.CodeChallengeMethod switch
+            {
+                "S256" => ComputeS256CodeChallenge(codeVerifier),
+                "plain" => codeVerifier,
+                _ => null
+            };
+
+            if (expectedChallenge == null || !string.Equals(expectedChallenge, authorization.CodeChallenge, StringComparison.Ordinal))
+            {
+                return BadRequest(new { error = "invalid_grant", error_description = "code_verifier mismatch" });
+            }
         }
 
         await _authorizationService.MarkCodeAsUsedAsync(code);
@@ -157,7 +195,12 @@ public class TokenController : Controller
         if (!string.IsNullOrEmpty(clientId) || !string.IsNullOrEmpty(clientSecret))
         {
             var client = await _clientService.GetByClientIdAsync(clientId);
-            if (client == null || !BCrypt.Net.BCrypt.Verify(clientSecret, client.ClientSecretHash) || client.Id != token.ClientId)
+            if (client == null || client.Id != token.ClientId)
+            {
+                return BadRequest(new { error = "invalid_client" });
+            }
+
+            if (!client.IsPublic && (string.IsNullOrEmpty(clientSecret) || !BCrypt.Net.BCrypt.Verify(clientSecret, client.ClientSecretHash)))
             {
                 return BadRequest(new { error = "invalid_client" });
             }
@@ -186,5 +229,15 @@ public class TokenController : Controller
         principal.SetScopes(scopes);
 
         return SignIn(principal, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+    }
+
+    private static string ComputeS256CodeChallenge(string codeVerifier)
+    {
+        var bytes = Encoding.ASCII.GetBytes(codeVerifier);
+        var hash = SHA256.HashData(bytes);
+        return Convert.ToBase64String(hash)
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
     }
 }

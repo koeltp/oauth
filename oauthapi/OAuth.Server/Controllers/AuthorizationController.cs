@@ -68,9 +68,27 @@ public class AuthorizationController : Controller
         {
             return BadRequest(new ApiResponse<object> { Code = 400, Message = "无效的用户" });
         }
-        
-        var clientId = Request.Query["client_id"].ToString();
-        var scope = Request.Query["scope"].ToString();
+
+        var clientId = Request.Form["client_id"].Count > 0
+            ? Request.Form["client_id"].ToString()
+            : Request.Query["client_id"].ToString();
+        var scope = Request.Form["scope"].Count > 0
+            ? Request.Form["scope"].ToString()
+            : Request.Query["scope"].ToString();
+        var redirectUri = Request.Form["redirect_uri"].Count > 0
+            ? Request.Form["redirect_uri"].ToString()
+            : Request.Query["redirect_uri"].ToString();
+        var codeChallenge = Request.Form["code_challenge"].Count > 0
+            ? Request.Form["code_challenge"].ToString()
+            : Request.Query["code_challenge"].ToString();
+        var codeChallengeMethod = Request.Form["code_challenge_method"].Count > 0
+            ? Request.Form["code_challenge_method"].ToString()
+            : Request.Query["code_challenge_method"].ToString();
+
+        if (string.IsNullOrEmpty(clientId))
+        {
+            return BadRequest(new ApiResponse<object> { Code = 400, Message = "缺少客户端标识" });
+        }
 
         var client = await _clientService.GetByClientIdAsync(clientId);
         if (client == null)
@@ -78,7 +96,7 @@ public class AuthorizationController : Controller
             return BadRequest(new ApiResponse<object> { Code = 400, Message = "无效的客户端" });
         }
 
-        await _authorizationService.CreateAsync(userId.Value, client.Id, scope);
+        await _authorizationService.CreateAsync(userId.Value, client.Id, scope, redirectUri, codeChallenge, codeChallengeMethod);
 
         var claims = new List<Claim>
         {

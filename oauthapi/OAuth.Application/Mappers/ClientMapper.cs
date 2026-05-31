@@ -13,6 +13,7 @@ public static class ClientMapper
             Name = client.Name,
             ClientId = client.ClientId,
             Description = client.Description,
+            IsPublic = client.IsPublic,
             Status = client.Status.ToString(),
             RedirectUris = client.RedirectUris,
             AllowedScopes = client.AllowedScopes,

@@ -28,17 +28,14 @@
           </div>
         </template>
         <div class="bind-list">
-          <div class="bind-item">
-            <el-icon><Link /></el-icon>
-            <span>GitHub</span>
-            <el-tag v-if="boundProviders.includes('Github')" type="success">已绑定</el-tag>
-            <el-button v-else type="primary" link @click="handleBindGithub">绑定</el-button>
-          </div>
-          <div class="bind-item">
-            <el-icon><ChatDotRound /></el-icon>
-            <span>微信</span>
-            <el-tag v-if="boundProviders.includes('Wechat')" type="success">已绑定</el-tag>
-            <el-button v-else type="primary" link @click="handleBindWechat">绑定</el-button>
+          <div class="bind-item" v-for="provider in allProviders" :key="provider.key">
+            <el-icon><component :is="provider.icon" /></el-icon>
+            <span>{{ provider.label }}</span>
+            <template v-if="provider.bound">
+              <el-tag type="success">已绑定</el-tag>
+              <el-button type="danger" link size="small" @click="handleUnbind(provider)">解绑</el-button>
+            </template>
+            <el-button v-else type="primary" link @click="handleBind(provider.key)">绑定</el-button>
           </div>
         </div>
       </el-card>
@@ -47,15 +44,33 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Link, ChatDotRound } from '@element-plus/icons-vue'
+import { ChatDotRound } from '@element-plus/icons-vue'
+import GithubIcon from '@/components/GithubIcon.vue'
 import UserLayout from '@/layouts/UserLayout.vue'
 import api from '@/utils/api'
 
 const authorizedApps = ref<any[]>([])
-const boundProviders = ref<string[]>([])
+const boundAccounts = ref<any[]>([])
 const loading = ref(false)
+
+const allProviders = computed(() => [
+  {
+    key: 'Github',
+    label: 'GitHub',
+    icon: GithubIcon,
+    bound: boundAccounts.value.some(a => a.provider === 'Github'),
+    account: boundAccounts.value.find(a => a.provider === 'Github')
+  },
+  {
+    key: 'Wechat',
+    label: '微信',
+    icon: ChatDotRound,
+    bound: boundAccounts.value.some(a => a.provider === 'Wechat'),
+    account: boundAccounts.value.find(a => a.provider === 'Wechat')
+  }
+])
 
 onMounted(async () => {
   await loadAuthorizedApps()
@@ -76,19 +91,32 @@ const loadAuthorizedApps = async () => {
 
 const loadBoundProviders = async () => {
   try {
-    const res = await api.get('/user/external/accounts')
-    boundProviders.value = (res || []).map((a: any) => a.provider)
+    const res: any = await api.get('/user/external/accounts')
+    boundAccounts.value = res || []
   } catch (error) {
     console.error('Failed to load bound providers')
   }
 }
 
-const handleBindGithub = () => {
-  window.location.href = '/api/1.0/external/github/authorize'
+const handleBind = (provider: string) => {
+  if (provider === 'Github') {
+    window.location.href = '/api/1.0/external/github/authorize?mode=bind'
+  } else if (provider === 'Wechat') {
+    window.location.href = '/api/1.0/external/wechat/authorize?mode=bind'
+  }
 }
 
-const handleBindWechat = () => {
-  window.location.href = '/api/1.0/external/wechat/authorize'
+const handleUnbind = async (provider: any) => {
+  try {
+    await ElMessageBox.confirm(`确定解除 ${provider.label} 账号绑定吗？`, '提示')
+    await api.delete(`/user/external/accounts/${provider.account.id}`)
+    ElMessage.success(`${provider.label} 账号已解绑`)
+    await loadBoundProviders()
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.response?.data?.message || '解绑失败')
+    }
+  }
 }
 
 const handleRevoke = async (row: any) => {

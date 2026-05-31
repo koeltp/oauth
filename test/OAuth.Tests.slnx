@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="TestClient.Console/TestClient.Console.csproj" />
+  <Project Path="TestClient.Web/TestClient.Web.csproj" />
+  <Folder Name="/TestClient.Spa/" />
+</Solution>

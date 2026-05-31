@@ -65,7 +65,8 @@ public class ClientController : ControllerBase
             request.Description,
             request.RedirectUris,
             request.AllowedScopes,
-            userId);
+            userId,
+            request.IsPublic);
 
         // 注册后自动提交为待审核
         await _clientService.SubmitAsync(client.Id);
@@ -77,7 +78,10 @@ public class ClientController : ControllerBase
                 ClientId = client.ClientId,
                 ClientSecret = clientSecret,
                 Status = ClientStatus.Pending.ToString(),
-                Message = "客户端注册成功，等待审核"
+                IsPublic = client.IsPublic,
+                Message = client.IsPublic
+                    ? "公开客户端注册成功，等待审核（无需 Client Secret）"
+                    : "客户端注册成功，等待审核"
             }
         };
     }
@@ -251,6 +255,7 @@ public class ClientController : ControllerBase
             Description = client.Description,
             RedirectUris = client.RedirectUris,
             AllowedScopes = client.AllowedScopes,
+            IsPublic = client.IsPublic,
             Status = client.Status.ToString(),
             CreatedAt = client.CreatedAt
         };

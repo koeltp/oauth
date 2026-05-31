@@ -31,6 +31,7 @@ declare module 'vue' {
     ElTabs: typeof import('element-plus/es')['ElTabs']
     ElTag: typeof import('element-plus/es')['ElTag']
     EmailCodeLoginForm: typeof import('./src/components/login/EmailCodeLoginForm.vue')['default']
+    GithubIcon: typeof import('./src/components/GithubIcon.vue')['default']
     PasswordLoginForm: typeof import('./src/components/login/PasswordLoginForm.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']

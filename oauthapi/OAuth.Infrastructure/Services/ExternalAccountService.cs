@@ -26,6 +26,9 @@ public class ExternalAccountService : IExternalAccountService
         var existing = await GetByProviderAsync(provider, providerUserId);
         if (existing != null)
         {
+            if (existing.UserId != userId)
+                throw new InvalidOperationException($"该 GitHub 账号已被其他用户绑定，无法重复绑定");
+
             existing.AccessToken = accessToken;
             existing.RefreshToken = refreshToken;
             existing.TokenExpiresAt = tokenExpiresAt;

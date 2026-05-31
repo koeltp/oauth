@@ -2,6 +2,7 @@
   <div class="admin-login">
     <div class="login-container">
       <div class="login-header">
+        <img src="@/assets/logo.png" height="36" alt="logo" style="margin-bottom: 12px;" />
         <h1>管理员登录</h1>
         <p>欢迎登录 OAuth 授权服务器管理后台</p>
       </div>
@@ -40,7 +41,7 @@
         </el-form-item>
 
         <el-form-item class="back-link">
-          <a href="http://localhost:3000/login" target="_blank">返回用户登录</a>
+          <a href="http://sso.taipi.top/login" target="_blank">返回用户登录</a>
         </el-form-item>
       </el-form>
     </div>

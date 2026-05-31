@@ -11,6 +11,7 @@ public class Client
     public string? Description { get; set; }
     public string RedirectUris { get; set; } = string.Empty;
     public string AllowedScopes { get; set; } = string.Empty;
+    public bool IsPublic { get; set; }
     public ClientStatus Status { get; set; } = ClientStatus.Draft;
     public Guid? UserId { get; set; }
     public User? User { get; set; }

@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OAuth SPA 测试客户端</title>
+    <script src="app.js" defer></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f0f2f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .navbar {
+            background: #1a1a2e;
+            color: #fff;
+            padding: 16px 24px;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        .navbar span { color: #a0a0b0; font-weight: 400; font-size: 14px; margin-left: 12px; }
+
+        .container { max-width: 800px; margin: 32px auto; padding: 0 16px; }
+
+        .card {
+            background: #fff;
+            border-radius: 8px;
+            padding: 24px;
+            margin-bottom: 16px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        h1 { font-size: 24px; margin-bottom: 8px; }
+        h2 { font-size: 20px; margin-bottom: 12px; }
+        h3 { font-size: 16px; margin-bottom: 8px; color: #555; }
+
+        .subtitle { color: #666; margin-bottom: 20px; }
+
+        .info-box {
+            background: #e8f4fd;
+            border-left: 4px solid #1890ff;
+            padding: 16px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .info-box ul { margin: 8px 0 0 20px; }
+        .info-box li { margin-bottom: 4px; }
+        .info-box code { background: #d0e8f5; padding: 1px 4px; border-radius: 2px; font-size: 13px; }
+
+        .config-display {
+            background: #fafafa;
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+            padding: 16px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        .config-display table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+        .config-display td { padding: 6px 8px; border-bottom: 1px solid #f0f0f0; }
+        .config-display td:first-child { color: #888; width: 120px; }
+
+        .btn-group { display: flex; gap: 12px; flex-wrap: wrap; }
+
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: opacity 0.2s;
+        }
+        .btn:hover { opacity: 0.85; }
+
+        .btn-primary { background: #1890ff; color: #fff; }
+        .btn-secondary { background: #5a6268; color: #fff; }
+        .btn-warning { background: #e6a23c; color: #fff; }
+        .btn-small { padding: 6px 14px; font-size: 13px; }
+
+        .success-card { border-left: 4px solid #52c41a; }
+        .error-card { border-left: 4px solid #f56c6c; }
+
+        .token-box {
+            background: #f6f8fa;
+            border: 1px solid #e8e8e8;
+            border-radius: 4px;
+            padding: 12px;
+            margin: 8px 0;
+            word-break: break-all;
+            font-size: 13px;
+        }
+        .token-box code { font-size: 12px; }
+
+        pre {
+            background: #1e1e2e;
+            color: #a0f0a0;
+            padding: 16px;
+            border-radius: 6px;
+            overflow-x: auto;
+            font-size: 13px;
+            line-height: 1.5;
+            margin-top: 8px;
+        }
+        pre.success { border-left: 4px solid #52c41a; }
+
+        .success { color: #52c41a; }
+        .error { color: #f56c6c; }
+        .warning { color: #e6a23c; }
+        .muted { color: #999; }
+    </style>
+</head>
+<body>
+
+<div class="navbar">
+     OAuth SPA 测试客户端
+    <span>模拟单页应用 · Authorization Code + PKCE</span>
+</div>
+
+<div class="container" id="app">
+    <div class="card">
+        <h2>加载中...</h2>
+    </div>
+</div>
+
+</body>
+</html>

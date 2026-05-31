@@ -34,7 +34,7 @@ public class AuthorizationService : IOAuthAuthorizationService
             .FirstOrDefaultAsync(a => a.Code == code);
     }
 
-    public async Task<Authorization> CreateAsync(Guid userId, Guid clientId, string scope)
+    public async Task<Authorization> CreateAsync(Guid userId, Guid clientId, string scope, string? redirectUri = null, string? codeChallenge = null, string? codeChallengeMethod = null)
     {
         var authorization = new Authorization
         {
@@ -42,6 +42,9 @@ public class AuthorizationService : IOAuthAuthorizationService
             ClientId = clientId,
             Code = GenerateCode(),
             Scope = scope,
+            RedirectUri = redirectUri,
+            CodeChallenge = codeChallenge,
+            CodeChallengeMethod = codeChallengeMethod,
             CodeExpiresAt = DateTime.UtcNow.AddMinutes(5)
         };
 

@@ -2,15 +2,16 @@
   <div class="admin-layout">
     <div class="top-header">
       <div class="header-left">
+        <img src="@/assets/logo.png" height="28" alt="logo" style="margin-right: 8px; vertical-align: middle;" />
         <h1>OAuth 管理后台</h1>
       </div>
       <div class="header-right">
         <div class="user-avatar-wrapper" @click="toggleUserMenu">
           <div class="user-avatar">
-            <img 
-              v-if="adminStore.adminInfo?.avatarUrl && !avatarLoadFailed" 
-              :src="adminStore.adminInfo.avatarUrl" 
-              @error="() => (avatarLoadFailed = true)" 
+            <img
+              v-if="adminStore.adminInfo?.avatarUrl && !avatarLoadFailed"
+              :src="adminStore.adminInfo.avatarUrl"
+              @error="() => (avatarLoadFailed = true)"
             />
             <span v-else>{{ adminStore.avatarText }}</span>
           </div>
@@ -21,7 +22,7 @@
         </div>
         <div v-if="showUserMenu" class="user-menu" @click.stop>
           <div class="menu-item" @click="handleSettings">
-         <el-icon><User  /></el-icon>
+            <el-icon><User /></el-icon>
             <span>个人中心</span>
           </div>
           <div class="menu-item logout" @click="handleLogout">
@@ -34,8 +35,8 @@
     <div class="main-body">
       <div class="sidebar">
         <div class="menu-list">
-          <div 
-            v-for="item in menuItems" 
+          <div
+            v-for="item in menuItems"
             :key="item.path"
             :class="['menu-item', { active: activeMenu === item.path }]"
             @click="handleMenuClick(item.path)"
@@ -56,7 +57,7 @@
 import { ref, computed, markRaw, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Grid , Monitor , User, SwitchButton } from '@element-plus/icons-vue'
+import { Grid, Monitor, User, SwitchButton } from '@element-plus/icons-vue'
 import { useAdminStore } from '@/stores/admin'
 
 const adminStore = useAdminStore()
@@ -67,8 +68,8 @@ const showUserMenu = ref(false)
 const avatarLoadFailed = ref(false)
 
 const menuItems = ref([
-  { name: '仪表盘', path: '/dashboard', icon: markRaw(Grid)  },
-  { name: '客户端管理', path: '/clients', icon: markRaw(Monitor)  },
+  { name: '仪表盘', path: '/dashboard', icon: markRaw(Grid) },
+  { name: '客户端管理', path: '/clients', icon: markRaw(Monitor) },
   { name: '用户管理', path: '/users', icon: markRaw(User) },
   { name: '管理员管理', path: '/admins', icon: markRaw(User) }
 ])
@@ -116,6 +117,11 @@ const handleLogout = () => {
   border-bottom: 1px solid #eee;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   position: relative;
+}
+
+.header-left {
+  display: flex;
+  align-items: center;
 }
 
 .header-left h1 {
@@ -276,5 +282,20 @@ const handleLogout = () => {
   padding: 20px;
   overflow-y: auto;
   background-color: #f5f7fa;
+}
+
+@media screen and (max-width: 768px) {
+  .sidebar {
+    width: 64px;
+  }
+
+  .sidebar .menu-item span {
+    display: none;
+  }
+
+  .sidebar .menu-item {
+    justify-content: center;
+    padding: 12px;
+  }
 }
 </style>

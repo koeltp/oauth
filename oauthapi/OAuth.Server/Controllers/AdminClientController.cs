@@ -33,7 +33,7 @@ public class AdminClientController : ControllerBase
         }
 
         var total = clients.Count;
-        var paginated = clients.Skip((query.Page - 1) * query.PageSize).Take(query.PageSize).ToList();
+        var paginated = clients.OrderBy(c => c.Name).Skip((query.Page - 1) * query.PageSize).Take(query.PageSize).ToList();
 
         return ApiResponse<PagedResultResponse<ClientDto>>.Success(new PagedResultResponse<ClientDto>
         {

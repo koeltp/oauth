@@ -14,6 +14,8 @@ public class RegisterClientRequest : IValidatableObject
 
     public string AllowedScopes { get; set; } = "openid profile email";
 
+    public bool IsPublic { get; set; }
+
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {
         if (string.IsNullOrWhiteSpace(RedirectUris))

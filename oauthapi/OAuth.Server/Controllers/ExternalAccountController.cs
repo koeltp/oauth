@@ -70,17 +70,21 @@ public class ExternalAccountController : ControllerBase
 
     [AllowAnonymous]
     [HttpGet("github/authorize")]
-    public async Task<IActionResult> GithubAuthorize([FromQuery] string? redirect_uri)
+    public async Task<IActionResult> GithubAuthorize(
+        [FromQuery] string? redirect_uri,
+        [FromQuery] string? mode,
+        [FromQuery] string? redirect_url)
     {
         var clientId = _configuration["GitHub:ClientId"] ?? "your-github-client-id";
         var callbackUrl = _configuration["GitHub:CallbackUrl"] ?? "https://localhost:5001/api/1.0/external/github/callback";
         var state = Guid.NewGuid().ToString("N");
 
-        _logger.LogInformation("GitHub authorize 开始 | redirect_uri={RedirectUri} | clientId={ClientId} | callbackUrl={CallbackUrl}",
-            redirect_uri, clientId, callbackUrl);
+        _logger.LogInformation("GitHub authorize 开始 | redirect_uri={RedirectUri} | mode={Mode} | redirect_url={RedirectUrl} | clientId={ClientId} | callbackUrl={CallbackUrl}",
+            redirect_uri, mode, redirect_url, clientId, callbackUrl);
 
         var cacheKey = $"oauth_state:{state}";
-        await _cache.SetStringAsync(cacheKey, redirect_uri ?? "", new DistributedCacheEntryOptions
+        var stateValue = JsonSerializer.Serialize(new { redirectUri = redirect_uri ?? "", mode = mode ?? "", redirectUrl = redirect_url ?? "" });
+        await _cache.SetStringAsync(cacheKey, stateValue, new DistributedCacheEntryOptions
         {
             AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(10)
         });
@@ -88,7 +92,7 @@ public class ExternalAccountController : ControllerBase
         _logger.LogInformation("GitHub authorize state 已缓存 | state={State} | cacheKey={CacheKey}", state, cacheKey);
 
         // 传给 GitHub 的 redirect_uri 始终是后端回调地址（需要在 GitHub OAuth App 中注册）
-        var url = $"https://github.com/login/oauth/authorize?client_id={clientId}&redirect_uri={Uri.EscapeDataString(callbackUrl)}&scope=user:email&state={state}";
+        var url = $"https://github.com/login/oauth/authorize?client_id={clientId}&redirect_uri={Uri.EscapeDataString(callbackUrl)}&scope=user:email&state={state}&prompt=consent";
 
         _logger.LogInformation("GitHub authorize 跳转到 GitHub | url={Url}", url);
         return Redirect(url);
@@ -109,9 +113,26 @@ public class ExternalAccountController : ControllerBase
         }
         await _cache.RemoveAsync(cacheKey);
 
-        _logger.LogInformation("GitHub callback state 验证通过");
+        _logger.LogInformation("GitHub callback state 验证通过 | storedValue={StoredValue}", storedValue);
 
-        var frontendRedirect = string.IsNullOrEmpty(storedValue) ? null : storedValue;
+        // 解析缓存数据（支持新旧格式）
+        string? frontendRedirect = null;
+        string? mode = null;
+        string? ssoRedirectUrl = null;
+        try
+        {
+            using var stateDoc = JsonDocument.Parse(storedValue);
+            frontendRedirect = stateDoc.RootElement.TryGetProperty("redirectUri", out var ru) ? ru.GetString() : null;
+            mode = stateDoc.RootElement.TryGetProperty("mode", out var m) ? m.GetString() : null;
+            ssoRedirectUrl = stateDoc.RootElement.TryGetProperty("redirectUrl", out var rurl) ? rurl.GetString() : null;
+        }
+        catch
+        {
+            // 兼容旧格式：纯 redirect_uri 字符串
+            frontendRedirect = string.IsNullOrEmpty(storedValue) ? null : storedValue;
+        }
+
+        _logger.LogInformation("GitHub callback state 解析完成 | frontendRedirect={FrontendRedirect} | mode={Mode} | ssoRedirectUrl={SsoRedirectUrl}", frontendRedirect, mode, ssoRedirectUrl);
 
         var clientId = _configuration["GitHub:ClientId"] ?? "your-github-client-id";
         var clientSecret = _configuration["GitHub:ClientSecret"] ?? "your-github-client-secret";
@@ -231,6 +252,19 @@ public class ExternalAccountController : ControllerBase
             _logger.LogInformation("GitHub callback 最终邮箱 | email={Email}", email);
 
             var existingAccount = await _externalAccountService.GetByProviderAsync(ExternalProvider.Github, githubUserId);
+
+            if (mode == "bind")
+            {
+                if (existingAccount != null)
+                {
+                    _logger.LogWarning("GitHub callback 绑定模式：账号已被绑定 | githubUserId={UserId}", githubUserId);
+                    return Redirect($"{frontendCallbackUrl}?error={Uri.EscapeDataString("该 GitHub 账号已被其他用户绑定，无法重复绑定")}");
+                }
+
+                _logger.LogInformation("GitHub callback 绑定模式：返回 provider_user_id 供前端绑定 | githubUserId={UserId}", githubUserId);
+                return Redirect($"{frontendCallbackUrl}?provider_user_id={Uri.EscapeDataString(githubUserId)}&provider=Github");
+            }
+
             User user;
 
             if (existingAccount != null)
@@ -266,7 +300,12 @@ public class ExternalAccountController : ControllerBase
 
             var redirectUrl = $"{frontendUrl}?access_token={Uri.EscapeDataString(jwt)}&user_id={user.Id}&username={Uri.EscapeDataString(user.Username)}&email={Uri.EscapeDataString(user.Email ?? string.Empty)}&expires_in={_jwtService.GetExpirationSeconds()}";
 
-            _logger.LogInformation("GitHub callback 登录成功，重定向到前端 | frontendUrl={FrontendUrl}", frontendUrl);
+            if (!string.IsNullOrEmpty(ssoRedirectUrl))
+            {
+                redirectUrl += $"&redirect_url={Uri.EscapeDataString(ssoRedirectUrl)}";
+            }
+
+            _logger.LogInformation("GitHub callback 登录成功，重定向到前端 | frontendUrl={FrontendUrl} | ssoRedirectUrl={SsoRedirectUrl}", frontendUrl, ssoRedirectUrl);
             return Redirect(redirectUrl);
         }
         catch (Exception ex)
@@ -302,18 +341,26 @@ public class ExternalAccountController : ControllerBase
             return new ApiResponse<BoundAccountResponse> { Code = 401, Message = "未授权" };
         }
 
-        var account = await _externalAccountService.BindAsync(id.Value, request.Provider, request.ProviderUserId);
-
-        return new ApiResponse<BoundAccountResponse>
+        try
         {
-            Data = new BoundAccountResponse
+            var account = await _externalAccountService.BindAsync(id.Value, request.Provider, request.ProviderUserId);
+
+            return new ApiResponse<BoundAccountResponse>
             {
-                Id = account.Id,
-                Provider = account.Provider.ToString(),
-                CreatedAt = account.CreatedAt
-            },
-            Message = "外部账号绑定成功"
-        };
+                Data = new BoundAccountResponse
+                {
+                    Id = account.Id,
+                    Provider = account.Provider.ToString(),
+                    CreatedAt = account.CreatedAt
+                },
+                Message = "外部账号绑定成功"
+            };
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning("外部账号绑定失败: {Message}", ex.Message);
+            return new ApiResponse<BoundAccountResponse> { Code = 409, Message = ex.Message };
+        }
     }
 
     [HttpPost("unbind")]

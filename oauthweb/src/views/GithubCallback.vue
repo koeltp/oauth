@@ -1,33 +1,58 @@
 <template>
   <div class="github-callback">
     <div class="loading-card">
-      <el-icon class="loading-icon" :size="48" v-if="!error">
+      <el-icon class="loading-icon" :size="48" v-if="!error && !isBinding">
+        <Loading />
+      </el-icon>
+      <el-icon class="loading-icon" :size="48" v-else-if="isBinding">
         <Loading />
       </el-icon>
       <el-icon class="error-icon" :size="48" v-else color="#f56c6c">
         <WarningFilled />
       </el-icon>
-      <h2>{{ error ? '登录失败' : 'GitHub 登录中...' }}</h2>
-      <p>{{ error || '正在完成身份验证，请稍候...' }}</p>
-      <el-button v-if="error" type="primary" @click="goToLogin" style="margin-top: 16px;">
-        返回登录
+      <h2>{{ title }}</h2>
+      <p>{{ message }}</p>
+      <el-button v-if="error && !isBinding" type="primary" @click="goBack" style="margin-top: 16px;">
+        {{ backButtonText }}
+      </el-button>
+      <el-button v-else-if="boundSuccess" type="primary" @click="goToDashboard" style="margin-top: 16px;">
+        返回控制台
       </el-button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Loading, WarningFilled } from '@element-plus/icons-vue'
 import { useUserStore } from '@/stores/user'
+import api from '@/utils/api'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 
 const error = ref('')
+const isBinding = ref(false)
+const boundSuccess = ref(false)
+
+const title = computed(() => {
+  if (boundSuccess.value) return '绑定成功'
+  if (isBinding.value) return '正在绑定...'
+  return error.value ? '失败' : 'GitHub 登录中...'
+})
+
+const message = computed(() => {
+  if (boundSuccess.value) return 'GitHub 账号已成功绑定到当前用户'
+  if (isBinding.value) return '正在完成账号绑定，请稍候...'
+  return error.value || '正在完成身份验证，请稍候...'
+})
+
+const backButtonText = computed(() => {
+  return error.value?.includes('已被其他用户绑定') ? '返回控制台' : '返回登录'
+})
 
 onMounted(async () => {
   const accessToken = route.query.access_token as string
@@ -35,6 +60,8 @@ onMounted(async () => {
   const username = route.query.username as string
   const email = route.query.email as string
   const errorMsg = route.query.error as string
+  const providerUserId = route.query.provider_user_id as string
+  const redirectUrl = route.query.redirect_url as string || ''
 
   if (errorMsg) {
     error.value = decodeURIComponent(errorMsg)
@@ -42,6 +69,26 @@ onMounted(async () => {
     return
   }
 
+  // 绑定模式：收到 provider_user_id，调用绑定 API
+  if (providerUserId) {
+    isBinding.value = true
+    try {
+      await api.post('/external/bind', {
+        provider: 'Github',
+        providerUserId
+      })
+      boundSuccess.value = true
+      ElMessage.success('GitHub 账号绑定成功')
+    } catch (err: any) {
+      error.value = err.response?.data?.message || '绑定失败'
+      ElMessage.error(error.value)
+    } finally {
+      isBinding.value = false
+    }
+    return
+  }
+
+  // 登录模式
   if (!accessToken || !userId) {
     error.value = '登录参数不完整，请重试'
     ElMessage.error(error.value)
@@ -62,11 +109,24 @@ onMounted(async () => {
   })
 
   ElMessage.success('GitHub 登录成功')
-  router.push('/dashboard')
+
+  if (redirectUrl) {
+    router.push(decodeURIComponent(redirectUrl))
+  } else {
+    router.push('/dashboard')
+  }
 })
 
-function goToLogin() {
-  router.push('/login')
+function goBack() {
+  if (error.value?.includes('已被其他用户绑定')) {
+    router.push('/dashboard')
+  } else {
+    router.push('/login')
+  }
+}
+
+function goToDashboard() {
+  router.push('/dashboard')
 }
 </script>
 

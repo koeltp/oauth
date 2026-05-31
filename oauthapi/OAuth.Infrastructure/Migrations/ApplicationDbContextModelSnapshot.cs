@@ -112,6 +112,12 @@ namespace OAuth.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("longtext");
 
+                    b.Property<string>("CodeChallenge")
+                        .HasColumnType("longtext");
+
+                    b.Property<string>("CodeChallengeMethod")
+                        .HasColumnType("longtext");
+
                     b.Property<DateTime?>("CodeExpiresAt")
                         .HasColumnType("datetime(6)");
 
@@ -120,6 +126,9 @@ namespace OAuth.Infrastructure.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime(6)");
+
+                    b.Property<string>("RedirectUri")
+                        .HasColumnType("longtext");
 
                     b.Property<string>("Scope")
                         .IsRequired()
@@ -167,6 +176,9 @@ namespace OAuth.Infrastructure.Migrations
 
                     b.Property<string>("Description")
                         .HasColumnType("longtext");
+
+                    b.Property<bool>("IsPublic")
+                        .HasColumnType("tinyint(1)");
 
                     b.Property<string>("Logo")
                         .HasColumnType("longtext");
