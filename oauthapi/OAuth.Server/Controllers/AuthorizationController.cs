@@ -6,6 +6,7 @@ using OAuth.Application.Interfaces;
 using OAuth.Contracts.Authorization;
 using OAuth.Contracts.Common;
 using System.Security.Claims;
+using Taipi.Core.RQRS;
 
 namespace OAuth.Server.Controllers;
 
@@ -28,34 +29,31 @@ public class AuthorizationController : Controller
 
     [HttpGet("authorize")]
     [Authorize(AuthenticationSchemes = OpenIddictServerAspNetCoreDefaults.AuthenticationScheme)]
-    public async Task<ApiResponse<AuthorizeResponse>> Authorize()
+    public async Task<ResponseResult<AuthorizeResponse>> Authorize()
     {
         var clientId = Request.Query["client_id"].ToString();
         var scope = Request.Query["scope"].ToString();
 
         if (string.IsNullOrEmpty(clientId))
         {
-            return new ApiResponse<AuthorizeResponse> { Code = 400, Message = "缺少客户端标识" };
+            return ResponseResult<AuthorizeResponse>.BadRequest("缺少客户端标识");
         }
 
         var client = await _clientService.GetByClientIdAsync(clientId);
         if (client == null)
         {
-            return new ApiResponse<AuthorizeResponse> { Code = 400, Message = "无效的客户端" };
+            return ResponseResult<AuthorizeResponse>.BadRequest("无效的客户端");
         }
 
         var userIdValue = _currentUserService.GetUserId()?.ToString();
 
-        return new ApiResponse<AuthorizeResponse>
+        return new ResponseResult<AuthorizeResponse>(new AuthorizeResponse
         {
-            Data = new AuthorizeResponse
-            {
-                ClientId = client.ClientId,
-                ClientName = client.Name,
-                Scopes = scope,
-                UserId = userIdValue
-            }
-        };
+            ClientId = client.ClientId,
+            ClientName = client.Name,
+            Scopes = scope,
+            UserId = userIdValue
+        });
     }
 
     [HttpPost("authorize/accept")]
@@ -66,7 +64,7 @@ public class AuthorizationController : Controller
         
         if (userId == null)
         {
-            return BadRequest(new ApiResponse<object> { Code = 400, Message = "无效的用户" });
+            return BadRequest(ResponseResult<object>.BadRequest("无效的用户"));
         }
 
         var clientId = Request.Form["client_id"].Count > 0
@@ -87,13 +85,13 @@ public class AuthorizationController : Controller
 
         if (string.IsNullOrEmpty(clientId))
         {
-            return BadRequest(new ApiResponse<object> { Code = 400, Message = "缺少客户端标识" });
+            return BadRequest(ResponseResult<object>.BadRequest("缺少客户端标识"));
         }
 
         var client = await _clientService.GetByClientIdAsync(clientId);
         if (client == null)
         {
-            return BadRequest(new ApiResponse<object> { Code = 400, Message = "无效的客户端" });
+            return BadRequest(ResponseResult<object>.BadRequest("无效的客户端"));
         }
 
         await _authorizationService.CreateAsync(userId.Value, client.Id, scope, redirectUri, codeChallenge, codeChallengeMethod);

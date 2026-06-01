@@ -9,6 +9,7 @@ using OAuth.Contracts.User;
 using OAuth.Domain.Entities;
 using OAuth.Infrastructure.Options;
 using System.Text.Json;
+using Taipi.Core.RQRS;
 
 namespace OAuth.Server.Controllers;
 
@@ -20,9 +21,10 @@ public class ExternalAccountController : ControllerBase
     private readonly IExternalAccountService _externalAccountService;
     private readonly IUserService _userService;
     private readonly IHttpClientFactory _httpClientFactory;
-    private readonly IConfiguration _configuration;
     private readonly ICurrentUserService _currentUserService;
     private readonly IJwtService _jwtService;
+    private readonly WechatOptions _wechatOptions;
+    private readonly GitHubOptions _githubOptions;
     private readonly TokenOptions _tokenOptions;
     private readonly IDistributedCache _cache;
     private readonly ILogger<ExternalAccountController> _logger;
@@ -31,9 +33,10 @@ public class ExternalAccountController : ControllerBase
         IExternalAccountService externalAccountService,
         IUserService userService,
         IHttpClientFactory httpClientFactory,
-        IConfiguration configuration,
         ICurrentUserService currentUserService,
         IJwtService jwtService,
+        IOptions<WechatOptions> wechatOptions,
+        IOptions<GitHubOptions> githubOptions,
         IOptions<TokenOptions> tokenOptions,
         IDistributedCache cache,
         ILogger<ExternalAccountController> logger)
@@ -41,9 +44,10 @@ public class ExternalAccountController : ControllerBase
         _externalAccountService = externalAccountService;
         _userService = userService;
         _httpClientFactory = httpClientFactory;
-        _configuration = configuration;
         _currentUserService = currentUserService;
         _jwtService = jwtService;
+        _wechatOptions = wechatOptions.Value;
+        _githubOptions = githubOptions.Value;
         _tokenOptions = tokenOptions.Value;
         _cache = cache;
         _logger = logger;
@@ -53,8 +57,8 @@ public class ExternalAccountController : ControllerBase
     [HttpGet("wechat/authorize")]
     public async Task<IActionResult> WechatAuthorize([FromQuery] string? redirect_uri)
     {
-        var appId = _configuration["Wechat:AppId"] ?? "your-wechat-appid";
-        var callbackUrl = _configuration["Wechat:CallbackUrl"] ?? "https://localhost:5001/api/external/wechat/callback";
+        var appId = _wechatOptions.AppId;
+        var callbackUrl = _wechatOptions.CallbackUrl;
         var state = Guid.NewGuid().ToString("N");
 
         var cacheKey = $"oauth_state:{state}";
@@ -75,8 +79,8 @@ public class ExternalAccountController : ControllerBase
         [FromQuery] string? mode,
         [FromQuery] string? redirect_url)
     {
-        var clientId = _configuration["GitHub:ClientId"] ?? "your-github-client-id";
-        var callbackUrl = _configuration["GitHub:CallbackUrl"] ?? "https://localhost:5001/api/1.0/external/github/callback";
+        var clientId = _githubOptions.ClientId;
+        var callbackUrl = _githubOptions.CallbackUrl;
         var state = Guid.NewGuid().ToString("N");
 
         _logger.LogInformation("GitHub authorize 开始 | redirect_uri={RedirectUri} | mode={Mode} | redirect_url={RedirectUrl} | clientId={ClientId} | callbackUrl={CallbackUrl}",
@@ -134,10 +138,10 @@ public class ExternalAccountController : ControllerBase
 
         _logger.LogInformation("GitHub callback state 解析完成 | frontendRedirect={FrontendRedirect} | mode={Mode} | ssoRedirectUrl={SsoRedirectUrl}", frontendRedirect, mode, ssoRedirectUrl);
 
-        var clientId = _configuration["GitHub:ClientId"] ?? "your-github-client-id";
-        var clientSecret = _configuration["GitHub:ClientSecret"] ?? "your-github-client-secret";
-        var callbackUrl = _configuration["GitHub:CallbackUrl"] ?? "https://localhost:5001/api/1.0/external/github/callback";
-        var frontendCallbackUrl = _configuration["GitHub:FrontendCallbackUrl"] ?? "https://localhost:5173/auth/github/callback";
+        var clientId = _githubOptions.ClientId;
+        var clientSecret = _githubOptions.ClientSecret;
+        var callbackUrl = _githubOptions.CallbackUrl;
+        var frontendCallbackUrl = _githubOptions.FrontendCallbackUrl;
 
         _logger.LogInformation("GitHub callback 配置加载完成 | clientId={ClientId} | callbackUrl={CallbackUrl} | frontendCallbackUrl={FrontendCallbackUrl}",
             clientId, callbackUrl, frontendCallbackUrl);
@@ -333,59 +337,56 @@ public class ExternalAccountController : ControllerBase
 
     [HttpPost("bind")]
     [Authorize]
-    public async Task<ApiResponse<BoundAccountResponse>> Bind([FromBody] BindExternalAccountRequest request)
+    public async Task<ResponseResult<BoundAccountResponse>> Bind([FromBody] BindExternalAccountRequest request)
     {
         var id = _currentUserService.GetUserId();
         if (id == null)
         {
-            return new ApiResponse<BoundAccountResponse> { Code = 401, Message = "未授权" };
+            return ResponseResult<BoundAccountResponse>.Unauthorized("未授权");
         }
 
         try
         {
             var account = await _externalAccountService.BindAsync(id.Value, request.Provider, request.ProviderUserId);
 
-            return new ApiResponse<BoundAccountResponse>
+            return new ResponseResult<BoundAccountResponse>(new BoundAccountResponse
             {
-                Data = new BoundAccountResponse
-                {
-                    Id = account.Id,
-                    Provider = account.Provider.ToString(),
-                    CreatedAt = account.CreatedAt
-                },
-                Message = "外部账号绑定成功"
-            };
+                Id = account.Id,
+                Provider = account.Provider.ToString(),
+                CreatedAt = account.CreatedAt
+            })
+            { Message = "外部账号绑定成功" };
         }
         catch (InvalidOperationException ex)
         {
             _logger.LogWarning("外部账号绑定失败: {Message}", ex.Message);
-            return new ApiResponse<BoundAccountResponse> { Code = 409, Message = ex.Message };
+            return ResponseResult<BoundAccountResponse>.Error(409, ex.Message);
         }
     }
 
     [HttpPost("unbind")]
     [Authorize]
-    public async Task<ApiResponse<BoundAccountResponse>> Unbind([FromBody] UnbindExternalAccountRequest request)
+    public async Task<ResponseResult<BoundAccountResponse>> Unbind([FromBody] UnbindExternalAccountRequest request)
     {
         var id = _currentUserService.GetUserId();
         if (id == null)
         {
-            return new ApiResponse<BoundAccountResponse> { Code = 401, Message = "未授权" };
+            return ResponseResult<BoundAccountResponse>.Unauthorized("未授权");
         }
 
         await _externalAccountService.UnbindAsync(id.Value, request.Provider);
 
-        return new ApiResponse<BoundAccountResponse> { Message = "外部账号解绑成功" };
+        return ResponseResult<BoundAccountResponse>.Success("外部账号解绑成功");
     }
 
     [HttpGet("bound-accounts")]
     [Authorize]
-    public async Task<ApiResponse<IEnumerable<BoundAccountResponse>>> GetBoundAccounts()
+    public async Task<ResponseResult<IEnumerable<BoundAccountResponse>>> GetBoundAccounts()
     {
         var id = _currentUserService.GetUserId();
         if (id == null)
         {
-            return new ApiResponse<IEnumerable<BoundAccountResponse>> { Code = 401, Message = "未授权" };
+            return ResponseResult<IEnumerable<BoundAccountResponse>>.Unauthorized("未授权");
         }
 
         var user = await _userService.GetByIdAsync(id.Value);
@@ -396,9 +397,6 @@ public class ExternalAccountController : ControllerBase
             CreatedAt = e.CreatedAt
         });
 
-        return new ApiResponse<IEnumerable<BoundAccountResponse>>
-        {
-            Data = accounts ?? Enumerable.Empty<BoundAccountResponse>()
-        };
+        return new ResponseResult<IEnumerable<BoundAccountResponse>>(accounts ?? Enumerable.Empty<BoundAccountResponse>());
     }
 }

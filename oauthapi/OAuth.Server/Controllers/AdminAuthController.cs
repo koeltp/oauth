@@ -5,9 +5,9 @@ using OAuth.Application.Interfaces;
 using OAuth.Contracts.Admin;
 using OAuth.Contracts.Auth;
 using OAuth.Contracts.Common;
-using OAuth.Contracts.Requests;
 using OAuth.Domain.Entities;
 using OAuth.Infrastructure.Options;
+using Taipi.Core.RQRS;
 
 namespace OAuth.Server.Controllers;
 
@@ -35,23 +35,23 @@ public class AdminAuthController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("login")]
-    public async Task<ApiResponse<AdminLoginResponse>> Login([FromBody] AdminLoginRequest request)
+    public async Task<ResponseResult<AdminLoginResponse>> Login([FromBody] AdminLoginRequest request)
     {
         var admin = await _adminService.GetByUsernameAsync(request.Username);
         if (admin == null)
         {
-            return ApiResponse<AdminLoginResponse>.BadRequest("用户名或密码错误");
+            return ResponseResult<AdminLoginResponse>.BadRequest("用户名或密码错误");
         }
 
         var isValid = await _adminService.ValidatePasswordAsync(admin, request.Password);
         if (!isValid)
         {
-            return ApiResponse<AdminLoginResponse>.BadRequest("用户名或密码错误");
+            return ResponseResult<AdminLoginResponse>.BadRequest("用户名或密码错误");
         }
 
         if (admin.Status != AdminStatus.Active)
         {
-            return ApiResponse<AdminLoginResponse>.BadRequest("管理员账户已禁用");
+            return ResponseResult<AdminLoginResponse>.BadRequest("管理员账户已禁用");
         }
 
         admin.LastLoginAt = DateTime.UtcNow;
@@ -60,7 +60,7 @@ public class AdminAuthController : ControllerBase
         var token = _jwtService.GenerateAdminToken(admin);
         var refreshToken = await _refreshTokenService.CreateAsync(admin.Id);
 
-        return ApiResponse<AdminLoginResponse>.Success(new AdminLoginResponse
+        return new ResponseResult<AdminLoginResponse>(new AdminLoginResponse
         {
             Id = admin.Id,
             Username = admin.Username,
@@ -75,18 +75,18 @@ public class AdminAuthController : ControllerBase
 
     [AllowAnonymous]
     [HttpPost("refresh")]
-    public async Task<ApiResponse<TokenRefreshResponse>> RefreshToken([FromBody] RefreshTokenRequest request)
+    public async Task<ResponseResult<TokenRefreshResponse>> RefreshToken([FromBody] RefreshTokenRequest request)
     {
         var refreshToken = await _refreshTokenService.GetByTokenAsync(request.RefreshToken);
 
         if (refreshToken == null)
         {
-            return ApiResponse<TokenRefreshResponse>.Unauthorized("无效的刷新令牌");
+            return ResponseResult<TokenRefreshResponse>.Unauthorized("无效的刷新令牌");
         }
 
         if (!await _refreshTokenService.IsValidAsync(request.RefreshToken))
         {
-            return ApiResponse<TokenRefreshResponse>.Unauthorized("刷新令牌已过期或已撤销");
+            return ResponseResult<TokenRefreshResponse>.Unauthorized("刷新令牌已过期或已撤销");
         }
 
         await _refreshTokenService.RevokeAsync(request.RefreshToken);
@@ -94,7 +94,7 @@ public class AdminAuthController : ControllerBase
         var newAccessToken = _jwtService.GenerateAdminToken(refreshToken.Admin);
         var newRefreshToken = await _refreshTokenService.CreateAsync(refreshToken.AdminId);
 
-        return ApiResponse<TokenRefreshResponse>.Success(new TokenRefreshResponse
+        return new ResponseResult<TokenRefreshResponse>(new TokenRefreshResponse
         {
             AccessToken = newAccessToken,
             RefreshToken = newRefreshToken.Token,

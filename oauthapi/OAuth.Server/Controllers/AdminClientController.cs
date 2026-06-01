@@ -4,7 +4,7 @@ using OAuth.Application.Interfaces;
 using OAuth.Application.Mappers;
 using OAuth.Contracts.Client;
 using OAuth.Contracts.Common;
-using OAuth.Contracts.Requests;
+using Taipi.Core.RQRS;
 using OAuth.Domain.Entities;
 
 namespace OAuth.Server.Controllers;
@@ -21,53 +21,38 @@ public class AdminClientController : ControllerBase
         _clientService = clientService;
     }
 
-    [HttpGet("clients")]
+    [HttpPost("clients")]
     [Authorize(Policy = AuthPolicies.AdminOnly)]
-    public async Task<ApiResponse<PagedResultResponse<ClientDto>>> GetClients([FromQuery] PagedQueryRequest query)
+    public async Task<PagerResponseResult<ClientDto>> GetClients([FromBody] SearchPager<ClientSearchDto> query)
     {
-        var clients = await _clientService.GetAllAsync();
-
-        if (!string.IsNullOrEmpty(query.Keyword))
-        {
-            clients = clients.Where(c => c.Name.Contains(query.Keyword) || c.ClientId.Contains(query.Keyword)).ToList();
-        }
-
-        var total = clients.Count;
-        var paginated = clients.OrderBy(c => c.Name).Skip((query.Page - 1) * query.PageSize).Take(query.PageSize).ToList();
-
-        return ApiResponse<PagedResultResponse<ClientDto>>.Success(new PagedResultResponse<ClientDto>
-        {
-            Data = paginated.Select(c => c.ToDto()).ToList(),
-            Total = total,
-            Page = query.Page,
-            PageSize = query.PageSize
-        });
+        var result = await _clientService.GetListAsync(query);
+        return new PagerResponseResult<ClientDto>(result.Items, query.PageIndex,query.PageSize, result.TotalCount);
     }
 
     [HttpPut("clients/{id}/approve")]
     [Authorize(Policy = AuthPolicies.AdminOnly)]
-    public async Task<ApiResponse<ClientDto>> ApproveClient(Guid id)
+    public async Task<ResponseResult<ClientDto>> ApproveClient(Guid id)
     {
         var client = await _clientService.GetByIdAsync(id);
         if (client == null)
         {
-            return ApiResponse<ClientDto>.NotFound("客户端未找到");
+            return ResponseResult<ClientDto>.NotFound("客户端未找到");
         }
 
         client.Status = ClientStatus.Approved;
         await _clientService.UpdateAsync(client);
 
-        return ApiResponse<ClientDto>.Success("客户端已批准", client.ToDto());
+        return new ResponseResult<ClientDto>(client.ToDto()) { Message = "客户端已批准" };
     }
 
     [HttpPut("clients/{id}/reject")]
     [Authorize(Policy = AuthPolicies.AdminOnly)]
-    public async Task<ApiResponse<ClientDto>> RejectClient(Guid id, [FromBody] RejectClientRequest request)
+    public async Task<ResponseResult<ClientDto>> RejectClient(Guid id, [FromBody] RejectClientRequest request)
     {
         var client = await _clientService.GetByIdAsync(id);
         if (client == null)
         {
-            return ApiResponse<ClientDto>.NotFound("客户端未找到");
+            return ResponseResult<ClientDto>.NotFound("客户端未找到");
         }
 
         client.Status = ClientStatus.Rejected;
@@ -81,21 +66,21 @@ public class AdminClientController : ControllerBase
 
         await _clientService.UpdateAsync(client);
 
-        return ApiResponse<ClientDto>.Success("客户端已拒绝", client.ToDto());
+        return new ResponseResult<ClientDto>(client.ToDto()) { Message = "客户端已拒绝" };
     }
 
     [HttpDelete("clients/{id}")]
     [Authorize(Policy = AuthPolicies.AdminOnly)]
-    public async Task<ApiResponse<ClientDto>> DeleteClient(Guid id)
+    public async Task<ResponseResult<ClientDto>> DeleteClient(Guid id)
     {
         var client = await _clientService.GetByIdAsync(id);
         if (client == null)
         {
-            return ApiResponse<ClientDto>.NotFound("客户端未找到");
+            return ResponseResult<ClientDto>.NotFound("客户端未找到");
         }
 
         var dto = client.ToDto();
         await _clientService.DeleteAsync(id);
-        return ApiResponse<ClientDto>.Success("客户端已删除", dto);
+        return new ResponseResult<ClientDto>(dto) { Message = "客户端已删除" };
     }
 }

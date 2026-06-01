@@ -38,3 +38,5 @@ logs/
 
 appsettings.Development.json
 appsettings.Production.json
+
+Taipi.Core/

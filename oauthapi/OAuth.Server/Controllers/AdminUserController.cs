@@ -4,7 +4,7 @@ using OAuth.Application.Interfaces;
 using OAuth.Application.Mappers;
 using OAuth.Contracts.Admin;
 using OAuth.Contracts.Common;
-using OAuth.Contracts.Requests;
+using Taipi.Core.RQRS;
 using OAuth.Domain.Entities;
 
 namespace OAuth.Server.Controllers;
@@ -25,48 +25,42 @@ public class AdminUserController : ControllerBase
 
     [HttpPost("users")]
     [Authorize(Policy = AuthPolicies.AdminOnly)]
-    public async Task<ApiResponse<PagedResultResponse<UserDto>>> GetUsers([FromBody] PagedQueryRequest query)
+    public async Task<PagerResponseResult<UserDto>> GetUsers([FromBody] SearchPager<string?> query)
     {
-        var users = await _userQueryService.GetUsersAsync(query.Page, query.PageSize, query.Keyword);
+        var users = await _userQueryService.GetUsersAsync(query);
         var total = await _userQueryService.GetTotalUsersCountAsync();
 
-        return ApiResponse<PagedResultResponse<UserDto>>.Success(new PagedResultResponse<UserDto>
-        {
-            Data = users.Select(u => u.ToDto()).ToList(),
-            Total = total,
-            Page = query.Page,
-            PageSize = query.PageSize
-        });
+        return new PagerResponseResult<UserDto>(users.Select(u => u.ToDto()), query.PageIndex, query.PageSize, total);
     }
 
     [HttpPut("users/{id}/status")]
     [Authorize(Policy = AuthPolicies.AdminOnly)]
-    public async Task<ApiResponse<UserDto>> UpdateUserStatus(Guid id, [FromBody] UpdateUserStatusRequest request)
+    public async Task<ResponseResult<UserDto>> UpdateUserStatus(Guid id, [FromBody] UpdateUserStatusRequest request)
     {
         var user = await _userService.GetByIdAsync(id);
         if (user == null)
         {
-            return ApiResponse<UserDto>.NotFound("用户未找到");
+            return ResponseResult<UserDto>.NotFound("用户未找到");
         }
 
         user.Status = request.Status;
         await _userService.UpdateAsync(user);
 
-        return ApiResponse<UserDto>.Success("用户状态已更新", user.ToDto());
+        return new ResponseResult<UserDto>(user.ToDto()) { Message = "用户状态已更新" };
     }
 
     [HttpDelete("users/{id}")]
     [Authorize(Policy = AuthPolicies.SuperAdminOnly)]
-    public async Task<ApiResponse<UserDto>> DeleteUser(Guid id)
+    public async Task<ResponseResult<UserDto>> DeleteUser(Guid id)
     {
         var user = await _userService.GetByIdAsync(id);
         if (user == null)
         {
-            return ApiResponse<UserDto>.NotFound("用户未找到");
+            return ResponseResult<UserDto>.NotFound("用户未找到");
         }
 
         var dto = user.ToDto();
         await _userQueryService.DeleteUserAsync(id);
-        return ApiResponse<UserDto>.Success("用户已删除", dto);
+        return new ResponseResult<UserDto>(dto) { Message = "用户已删除" };
     }
 }

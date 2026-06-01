@@ -1,6 +1,6 @@
 using System.Net;
 using System.Text.Json;
-using OAuth.Contracts.Common;
+using Taipi.Core.RQRS;
 
 namespace OAuth.Server.Middlewares;
 
@@ -86,7 +86,7 @@ public class GlobalExceptionHandler
                 break;
         }
 
-        var response = new ApiResponse
+        var response = new StatusResponseResult
         {
             Code = context.Response.StatusCode,
             Message = message,

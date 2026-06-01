@@ -47,7 +47,7 @@ export const sendSmsCode = (data: { phone: string; purpose: number }): Promise<v
   })
 }
 
-export const verifyCode = (data: { email?: string; phone?: string; code: string; purpose: number }): Promise<void> => {
+export const verifyCode = (data: { identifier: string; type: number; code: string; purpose: number }): Promise<void> => {
   return request({
     url: '/auth/verify-code',
     method: 'post',

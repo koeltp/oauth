@@ -17,12 +17,13 @@ public class RequestLoggingMiddleware
     {
         var sb = new StringBuilder();
         sb.AppendLine("====== REQUEST START ======");
-        sb.AppendLine($"Method: {context.Request.Method}");
-        sb.AppendLine($"Path: {context.Request.Path}");
-        sb.AppendLine($"QueryString: {context.Request.QueryString}");
+        sb.AppendLine($"Method: {context.Request.Method} ==== Path: {context.Request.Path}");
+        if (context.Request.QueryString.HasValue)
+        {
+            sb.AppendLine($"QueryString: {context.Request.QueryString}");
+        }
 
-        var headers = string.Join(", ", context.Request.Headers.Select(h => $"{h.Key}: {h.Value}"));
-        sb.AppendLine($"Headers: {headers}");
+        sb.AppendLine($"Headers: {context.Request.Headers["Authorization"].FirstOrDefault() ?? string.Empty}");
 
         if (context.Request.ContentLength > 0 &&
             (context.Request.Method == "POST" || context.Request.Method == "PUT"))

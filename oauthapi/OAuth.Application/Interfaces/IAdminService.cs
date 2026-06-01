@@ -1,12 +1,12 @@
 using OAuth.Contracts.Admin;
-using OAuth.Contracts.Common;
+using Taipi.Core.RQRS;
 using OAuth.Domain.Entities;
 
 namespace OAuth.Application.Interfaces;
 
 public interface IAdminService
 {
-    Task<PagedResultResponse<AdminDto>> GetAllAsync(int page, int pageSize, string? keyword);
+    Task<PagerResponse<AdminDto>> GetListAsync(SearchPager<string?> pager);
     Task<Admin?> GetByIdAsync(Guid id);
     Task<Admin?> GetByUsernameAsync(string username);
     Task<Admin> CreateAsync(string username, string password, AdminRole role = AdminRole.Operator);

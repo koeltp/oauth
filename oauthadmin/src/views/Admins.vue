@@ -73,13 +73,13 @@
 
       <div class="pagination-area">
         <el-pagination
-          v-model:current-page="currentPage"
+          v-model:current-page="pageIndex"
           v-model:page-size="pageSize"
-          :total="total"
-          :page-sizes="[10, 20, 50, 100]"
+          :total="totalCount"
+          :page-sizes="PAGE_SIZES"
           layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSizeChange"
-          @current-change="handleCurrentChange"
+          @size-change="onPageSizeChange"
+          @current-change="onPageChange"
         />
       </div>
     </el-card>
@@ -127,12 +127,11 @@ import type { AdminDto } from '@/api/admins'
 import { formatDate } from '@/utils/format'
 import { getRoleText, getRoleType, getAdminStatusType, getAdminStatusText } from '@/constants'
 
+import { usePagination, PAGE_SIZES } from '@/composables/usePagination'
+
 const loading = ref(false)
 const admins = ref<AdminDto[]>([])
-
-const currentPage = ref(1)
-const pageSize = ref(10)
-const total = ref(0)
+const { pageIndex, pageSize, totalCount, onPageSizeChange, onPageChange } = usePagination(loadAdmins)
 
 const searchForm = ref({
   keyword: ''
@@ -169,38 +168,29 @@ onMounted(async () => {
   await loadAdmins()
 })
 
-const loadAdmins = async () => {
+async function loadAdmins() {
   loading.value = true
   try {
     const res = await getAdmins({
-      page: currentPage.value,
+      pageIndex: pageIndex.value,
       pageSize: pageSize.value,
-      keyword: searchForm.value.keyword || undefined
+      condition: searchForm.value.keyword || undefined
     })
-    admins.value = res.data
-    total.value = res.total
+    admins.value = res.items
+    totalCount.value = res.totalCount
   } finally {
     loading.value = false
   }
 }
 
 const handleSearch = () => {
-  currentPage.value = 1
+  pageIndex.value = 1
   loadAdmins()
 }
 
 const handleReset = () => {
   searchForm.value.keyword = ''
   handleSearch()
-}
-
-const handleSizeChange = () => {
-  currentPage.value = 1
-  loadAdmins()
-}
-
-const handleCurrentChange = () => {
-  loadAdmins()
 }
 
 const handleCreate = () => {

@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using OAuth.Application.Interfaces;
 using OAuth.Domain.Entities;
 using OAuth.Infrastructure.Data;
+using Taipi.Core.Linq;
+using Taipi.Core.RQRS;
 
 namespace OAuth.Infrastructure.Services;
 
@@ -14,19 +16,15 @@ public class UserQueryService : IUserQueryService
         _context = context;
     }
 
-    public async Task<List<User>> GetUsersAsync(int page, int pageSize, string? keyword)
+    public async Task<List<User>> GetUsersAsync(SearchPager<string?> pager)
     {
-        var query = _context.Users.AsQueryable();
-
-        if (!string.IsNullOrEmpty(keyword))
-        {
-            query = query.Where(u => u.Username.Contains(keyword) || u.Email.Contains(keyword));
-        }
+        var query = _context.Users.AsQueryable()
+            .WhereIf(!string.IsNullOrEmpty(pager.Condition), u =>
+                u.Username.Contains(pager.Condition!) || u.Email.Contains(pager.Condition!));
 
         return await query
             .OrderByDescending(u => u.CreatedAt)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
+            .Page(pager)
             .ToListAsync();
     }
 

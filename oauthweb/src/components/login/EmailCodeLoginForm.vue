@@ -62,7 +62,7 @@ async function handleSubmit() {
     if (!valid) return
     loading.value = true
     try {
-      const res: any = await verifyCode({ email: form.email, code: form.code, purpose: 0 })
+      const res: any = await verifyCode({ identifier: form.email, type: 0, code: form.code, purpose: 0 })
       if (res.require2Fa) {
         ElMessage.warning('请使用密码登录并输入两步验证码')
       } else if (res.verified) {

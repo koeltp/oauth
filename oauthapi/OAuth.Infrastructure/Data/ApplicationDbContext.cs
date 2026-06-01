@@ -13,7 +13,6 @@ public class ApplicationDbContext : DbContext
     public DbSet<User> Users => Set<User>();
     public DbSet<Client> Clients => Set<Client>();
     public DbSet<Authorization> Authorizations => Set<Authorization>();
-    public DbSet<VerificationCode> VerificationCodes => Set<VerificationCode>();
     public DbSet<UserExternalAccount> UserExternalAccounts => Set<UserExternalAccount>();
     public DbSet<Admin> Admins => Set<Admin>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
@@ -49,14 +48,6 @@ public class ApplicationDbContext : DbContext
         builder.Entity<Admin>(entity =>
         {
             entity.HasIndex(e => e.Username).IsUnique();
-        });
-
-        // VerificationCode
-        builder.Entity<VerificationCode>(entity =>
-        {
-            entity.HasIndex(e => new { e.Email, e.Code, e.Purpose });
-            entity.HasIndex(e => new { e.Phone, e.Code, e.Purpose });
-            entity.HasIndex(e => e.ExpiresAt);
         });
 
         // UserExternalAccount

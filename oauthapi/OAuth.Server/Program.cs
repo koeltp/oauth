@@ -145,6 +145,8 @@ builder.Services.Configure<TokenOptions>(builder.Configuration.GetSection(TokenO
 builder.Services.Configure<UploadOptions>(builder.Configuration.GetSection(UploadOptions.SectionName));
 builder.Services.Configure<SecurityOptions>(builder.Configuration.GetSection(SecurityOptions.SectionName));
 builder.Services.Configure<EncryptionOptions>(builder.Configuration.GetSection(EncryptionOptions.SectionName));
+builder.Services.Configure<WechatOptions>(builder.Configuration.GetSection(WechatOptions.SectionName));
+builder.Services.Configure<GitHubOptions>(builder.Configuration.GetSection(GitHubOptions.SectionName));
 
 // Controllers
 builder.Services.AddControllers(options =>

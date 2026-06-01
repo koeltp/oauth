@@ -4,8 +4,8 @@ using OAuth.Application.Interfaces;
 using OAuth.Application.Mappers;
 using OAuth.Contracts.Admin;
 using OAuth.Contracts.Common;
-using OAuth.Contracts.Requests;
 using OAuth.Domain.Entities;
+using Taipi.Core.RQRS;
 
 namespace OAuth.Server.Controllers;
 
@@ -23,25 +23,25 @@ public class AdminManagementController : ControllerBase
 
     [HttpPost("admins/list")]
     [Authorize(Policy = AuthPolicies.SuperAdminOnly)]
-    public async Task<ApiResponse<PagedResultResponse<AdminDto>>> GetAdmins([FromBody] PagedQueryRequest query)
+    public async Task<ResponseResult<PagerResponse<AdminDto>>> GetAdmins([FromBody] SearchPager<string?> query)
     {
-        var result = await _adminService.GetAllAsync(query.Page, query.PageSize, query.Keyword);
-        return ApiResponse<PagedResultResponse<AdminDto>>.Success(result);
+        var result = await _adminService.GetListAsync(query);
+        return new ResponseResult<PagerResponse<AdminDto>>(result);
     }
 
     [HttpPost("admins")]
     [Authorize(Policy = AuthPolicies.SuperAdminOnly)]
-    public async Task<ApiResponse<AdminCreatedResponse>> CreateAdmin([FromBody] CreateAdminRequest request)
+    public async Task<ResponseResult<AdminCreatedResponse>> CreateAdmin([FromBody] CreateAdminRequest request)
     {
         var existingAdmin = await _adminService.GetByUsernameAsync(request.Username);
         if (existingAdmin != null)
         {
-            return ApiResponse<AdminCreatedResponse>.Error(400, "用户名已存在");
+            return ResponseResult<AdminCreatedResponse>.Error(400, "用户名已存在");
         }
 
         var admin = await _adminService.CreateAsync(request.Username, request.Password, request.Role);
 
-        return ApiResponse<AdminCreatedResponse>.Success(new AdminCreatedResponse
+        return new ResponseResult<AdminCreatedResponse>(new AdminCreatedResponse
         {
             Id = admin.Id,
             Username = admin.Username,
@@ -51,12 +51,12 @@ public class AdminManagementController : ControllerBase
 
     [HttpPut("admins/{id}")]
     [Authorize(Policy = AuthPolicies.SuperAdminOnly)]
-    public async Task<ApiResponse<AdminDto>> UpdateAdmin(Guid id, [FromBody] UpdateAdminRequest request)
+    public async Task<ResponseResult<AdminDto>> UpdateAdmin(Guid id, [FromBody] UpdateAdminRequest request)
     {
         var admin = await _adminService.GetByIdAsync(id);
         if (admin == null)
         {
-            return ApiResponse<AdminDto>.NotFound("管理员未找到");
+            return ResponseResult<AdminDto>.NotFound("管理员未找到");
         }
 
         if (!string.IsNullOrEmpty(request.Email))
@@ -68,37 +68,37 @@ public class AdminManagementController : ControllerBase
         admin.UpdatedAt = DateTime.UtcNow;
         await _adminService.UpdateAsync(admin);
 
-        return ApiResponse<AdminDto>.Success("管理员已更新", admin.ToDto());
+        return new ResponseResult<AdminDto>(admin.ToDto()) { Message = "管理员已更新" };
     }
 
     [HttpDelete("admins/{id}")]
     [Authorize(Policy = AuthPolicies.SuperAdminOnly)]
-    public async Task<ApiResponse<object>> DeleteAdmin(Guid id)
+    public async Task<ResponseResult<object>> DeleteAdmin(Guid id)
     {
         var admin = await _adminService.GetByIdAsync(id);
         if (admin == null)
         {
-            return ApiResponse<object>.NotFound("管理员未找到");
+            return ResponseResult<object>.NotFound("管理员未找到");
         }
 
         await _adminService.DeleteAsync(id);
-        return ApiResponse<object>.Success("管理员已删除");
+        return ResponseResult<object>.Success("管理员已删除");
     }
 
     [HttpPut("admins/{id}/status")]
     [Authorize(Policy = AuthPolicies.SuperAdminOnly)]
-    public async Task<ApiResponse<AdminDto>> UpdateAdminStatus(Guid id, [FromBody] UpdateAdminStatusRequest request)
+    public async Task<ResponseResult<AdminDto>> UpdateAdminStatus(Guid id, [FromBody] UpdateAdminStatusRequest request)
     {
         var admin = await _adminService.GetByIdAsync(id);
         if (admin == null)
         {
-            return ApiResponse<AdminDto>.NotFound("管理员未找到");
+            return ResponseResult<AdminDto>.NotFound("管理员未找到");
         }
 
         admin.Status = request.Status;
         admin.UpdatedAt = DateTime.UtcNow;
         await _adminService.UpdateAsync(admin);
 
-        return ApiResponse<AdminDto>.Success("管理员状态已更新", admin.ToDto());
+        return new ResponseResult<AdminDto>(admin.ToDto()) { Message = "管理员状态已更新" };
     }
 }

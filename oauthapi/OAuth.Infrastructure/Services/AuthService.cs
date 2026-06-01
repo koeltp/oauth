@@ -1,4 +1,5 @@
 using OAuth.Application.Interfaces;
+using OAuth.Contracts.Auth;
 using OAuth.Domain.Entities;
 using OAuth.Domain.Exceptions;
 using OAuth.Infrastructure.Helpers;
@@ -77,20 +78,20 @@ public class AuthService : IAuthService
         return await GenerateLoginResult(user);
     }
 
-    public async Task<AuthLoginResult> VerifyCodeAsync(string? email, string? phone, string code, VerificationCodePurpose purpose)
+    public async Task<AuthLoginResult> VerifyCodeAsync(string identifier, VerificationCodeType type, string code, VerificationCodePurpose purpose)
     {
-        var isValid = await _verificationCodeService.ValidateAsync(email, phone, code, purpose);
+        var isValid = await _verificationCodeService.ValidateAsync(identifier, code, purpose);
         if (!isValid)
         {
             throw new InvalidOperationException("验证码无效或已过期");
         }
 
-        if (email == null)
+        if (type != VerificationCodeType.Email)
         {
-            throw new InvalidOperationException("登录需要邮箱地址");
+            throw new InvalidOperationException("仅支持邮箱验证码登录");
         }
 
-        var user = await _userService.GetByEmailAsync(email);
+        var user = await _userService.GetByEmailAsync(identifier);
         if (user == null)
         {
             throw new UnauthorizedAccessException("用户不存在");
@@ -232,7 +233,7 @@ public class AuthService : IAuthService
             throw new InvalidOperationException("用户不存在");
         }
 
-        var isValid = await _verificationCodeService.ValidateAsync(null, phone, code, Domain.Entities.VerificationCodePurpose.BindPhone);
+        var isValid = await _verificationCodeService.ValidateAsync(phone, code, VerificationCodePurpose.BindPhone);
         if (!isValid)
         {
             throw new InvalidOperationException("验证码无效或已过期");

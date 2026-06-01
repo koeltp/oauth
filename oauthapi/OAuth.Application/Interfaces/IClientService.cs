@@ -1,10 +1,12 @@
+using OAuth.Contracts.Client;
 using OAuth.Domain.Entities;
+using Taipi.Core.RQRS;
 
 namespace OAuth.Application.Interfaces;
 
 public interface IClientService
 {
-    Task<List<Client>> GetAllAsync();
+    Task<PagerResponse<ClientDto>> GetListAsync(SearchPager<ClientSearchDto> query);
     Task<List<Client>> GetPendingAsync();
     Task<List<Client>> GetByUserIdAsync(Guid userId);
     Task<Client?> GetByIdAsync(Guid id);

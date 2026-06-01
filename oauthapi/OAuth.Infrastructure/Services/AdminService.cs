@@ -1,8 +1,8 @@
 using Microsoft.EntityFrameworkCore;
 using OAuth.Application.Interfaces;
-using OAuth.Application.Mappers;
 using OAuth.Contracts.Admin;
-using OAuth.Contracts.Common;
+using Taipi.Core.Linq;
+using Taipi.Core.RQRS;
 using OAuth.Domain.Entities;
 using OAuth.Infrastructure.Data;
 
@@ -17,23 +17,18 @@ public class AdminService : IAdminService
         _context = context;
     }
 
-    public async Task<PagedResultResponse<AdminDto>> GetAllAsync(int page, int pageSize, string? keyword)
+    public async Task<PagerResponse<AdminDto>> GetListAsync(SearchPager<string?> pager)
     {
-        var query = _context.Admins.AsQueryable();
-
-        if (!string.IsNullOrWhiteSpace(keyword))
-        {
-            query = query.Where(a =>
-                a.Username.Contains(keyword) ||
-                (a.Email != null && a.Email.Contains(keyword)));
-        }
+        var query = _context.Admins.AsQueryable()
+            .WhereIf(!string.IsNullOrWhiteSpace(pager.Condition), a =>
+                a.Username.Contains(pager.Condition!) ||
+                (a.Email != null && a.Email.Contains(pager.Condition!)));
 
         var total = await query.CountAsync();
 
         var items = await query
             .OrderByDescending(a => a.CreatedAt)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
+            .Page(pager)
             .Select(a => new AdminDto
             {
                 Id = a.Id,
@@ -46,12 +41,12 @@ public class AdminService : IAdminService
             })
             .ToListAsync();
 
-        return new PagedResultResponse<AdminDto>
+        return new PagerResponse<AdminDto>
         {
-            Data = items,
-            Total = total,
-            Page = page,
-            PageSize = pageSize
+            Items = items,
+            TotalCount = total,
+            PageIndex = pager.PageIndex,
+            PageSize = pager.PageSize
         };
     }
 
@@ -69,19 +64,19 @@ public class AdminService : IAdminService
     {
         var admin = new Admin
         {
+            Id = Guid.NewGuid(),
             Username = username,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(password),
-            Role = role
+            Role = role,
+            Status = AdminStatus.Active,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
         };
 
         _context.Admins.Add(admin);
         await _context.SaveChangesAsync();
-        return admin;
-    }
 
-    public Task<bool> ValidatePasswordAsync(Admin admin, string password)
-    {
-        return Task.FromResult(BCrypt.Net.BCrypt.Verify(password, admin.PasswordHash));
+        return admin;
     }
 
     public async Task UpdateAsync(Admin admin)
@@ -100,18 +95,19 @@ public class AdminService : IAdminService
         }
     }
 
+    public async Task<bool> ValidatePasswordAsync(Admin admin, string password)
+    {
+        return BCrypt.Net.BCrypt.Verify(password, admin.PasswordHash);
+    }
+
     public async Task<(bool Success, string Message)> ChangePasswordAsync(Guid adminId, string currentPassword, string newPassword)
     {
         var admin = await _context.Admins.FindAsync(adminId);
         if (admin == null)
-        {
             return (false, "管理员不存在");
-        }
 
         if (!BCrypt.Net.BCrypt.Verify(currentPassword, admin.PasswordHash))
-        {
-            return (false, "当前密码不正确");
-        }
+            return (false, "当前密码错误");
 
         admin.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
         admin.UpdatedAt = DateTime.UtcNow;

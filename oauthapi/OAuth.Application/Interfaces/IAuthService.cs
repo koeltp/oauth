@@ -1,4 +1,4 @@
-using OAuth.Domain.Entities;
+using OAuth.Contracts.Auth;
 
 namespace OAuth.Application.Interfaces;
 
@@ -6,7 +6,7 @@ public interface IAuthService
 {
     Task<AuthRegisterResult> RegisterAsync(string username, string email, string password);
     Task<AuthLoginResult> LoginWithPasswordAsync(string email, string password, string? twoFaCode);
-    Task<AuthLoginResult> VerifyCodeAsync(string? email, string? phone, string code, VerificationCodePurpose purpose);
+    Task<AuthLoginResult> VerifyCodeAsync(string identifier, VerificationCodeType type, string code, VerificationCodePurpose purpose);
     Task<AuthLoginResult> Verify2FAAsync(string userId, string code);
     Task<TwoFactorSetupResult> Enable2FAAsync(Guid userId);
     Task Confirm2FAAsync(Guid userId, string code);

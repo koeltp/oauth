@@ -19,7 +19,6 @@ public class User
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? UpdatedAt { get; set; }
 
-    public ICollection<VerificationCode> VerificationCodes { get; set; } = new List<VerificationCode>();
     public ICollection<UserExternalAccount> ExternalAccounts { get; set; } = new List<UserExternalAccount>();
     public ICollection<Authorization> Authorizations { get; set; } = new List<Authorization>();
 }

@@ -1,6 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Filters;
-using OAuth.Contracts.Common;
+using Taipi.Core.RQRS;
 
 namespace OAuth.Server.Filters;
 
@@ -21,7 +21,7 @@ public class ValidateModelAttribute : ActionFilterAttribute
                 .Where(m => !string.IsNullOrEmpty(m));
 
             var message = string.Join("；", errors);
-            context.Result = new BadRequestObjectResult(ApiResponse<object>.BadRequest(message));
+            context.Result = new BadRequestObjectResult(StatusResponseResult.BadRequest(message));
         }
     }
 }
@@ -38,8 +38,8 @@ public static class ModelStateExtensions
                 .Where(m => !string.IsNullOrEmpty(m));
 
             var message = string.Join("；", errors);
-            return controller.BadRequest(ApiResponse<object>.BadRequest(message));
+            return controller.BadRequest(StatusResponseResult.BadRequest(message));
         }
-        return null;
+        return null!;
     }
 }

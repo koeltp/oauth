@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OAuth.Application.Interfaces;
 using OAuth.Contracts.Common;
+using Taipi.Core.RQRS;
 using OAuth.Domain.Entities;
 
 namespace OAuth.Server.Controllers;
@@ -27,7 +28,7 @@ public class StatsController : ControllerBase
 
     [HttpGet]
     [AllowAnonymous]
-    public async Task<ApiResponse<StatsResponse>> GetStats()
+    public async Task<ResponseResult<StatsResponse>> GetStats()
     {
         var stats = new StatsResponse
         {
@@ -37,6 +38,6 @@ public class StatsController : ControllerBase
             TotalAuthorizations = await _authorizationService.GetTotalAuthorizationsCount()
         };
 
-        return new ApiResponse<StatsResponse> { Data = stats };
+        return new ResponseResult<StatsResponse>(stats);
     }
 }

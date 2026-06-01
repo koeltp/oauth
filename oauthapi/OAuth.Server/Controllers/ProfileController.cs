@@ -6,6 +6,7 @@ using OAuth.Application.Mappers;
 using OAuth.Contracts.Admin;
 using OAuth.Contracts.Common;
 using OAuth.Infrastructure.Options;
+using Taipi.Core.RQRS;
 
 namespace OAuth.Server.Controllers;
 
@@ -27,34 +28,31 @@ public class ProfileController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<ApiResponse<ProfileResponse>> GetProfile()
+    public async Task<ResponseResult<ProfileResponse>> GetProfile()
     {
         var adminId = _currentUserService.GetUserId();
         if (adminId == null)
-            return new ApiResponse<ProfileResponse> { Code = 401, Message = "无效的用户标识" };
+            return ResponseResult<ProfileResponse>.Unauthorized("无效的用户标识");
 
         var admin = await _adminService.GetByIdAsync(adminId.Value);
 
         if (admin == null)
-            return new ApiResponse<ProfileResponse> { Code = 404, Message = "管理员不存在" };
+            return ResponseResult<ProfileResponse>.NotFound("管理员不存在");
 
-        return new ApiResponse<ProfileResponse>
-        {
-            Data = admin.ToProfileResponse()
-        };
+        return new ResponseResult<ProfileResponse>(admin.ToProfileResponse());
     }
 
     [HttpPut]
-    public async Task<ApiResponse<ProfileResponse>> UpdateProfile([FromBody] AdminUpdateRequest request)
+    public async Task<ResponseResult<ProfileResponse>> UpdateProfile([FromBody] AdminUpdateRequest request)
     {
         var adminId = _currentUserService.GetUserId();
         if (adminId == null)
-            return new ApiResponse<ProfileResponse> { Code = 401, Message = "无效的用户标识" };
+            return ResponseResult<ProfileResponse>.Unauthorized("无效的用户标识");
 
         var admin = await _adminService.GetByIdAsync(adminId.Value);
 
         if (admin == null)
-            return new ApiResponse<ProfileResponse> { Code = 404, Message = "管理员不存在" };
+            return ResponseResult<ProfileResponse>.NotFound("管理员不存在");
 
         if (!string.IsNullOrEmpty(request.Email))
             admin.Email = request.Email;
@@ -62,24 +60,21 @@ public class ProfileController : ControllerBase
         admin.UpdatedAt = DateTime.UtcNow;
         await _adminService.UpdateAsync(admin);
 
-        return new ApiResponse<ProfileResponse>
-        {
-            Data = admin.ToProfileResponse()
-        };
+        return new ResponseResult<ProfileResponse>(admin.ToProfileResponse());
     }
 
     [HttpPost("avatar")]
-    public async Task<ApiResponse<AvatarUploadResponse>> UploadAvatar(IFormFile file)
+    public async Task<ResponseResult<AvatarUploadResponse>> UploadAvatar(IFormFile file)
     {
         if (file == null || file.Length == 0)
-            return new ApiResponse<AvatarUploadResponse> { Code = 400, Message = "请选择图片文件" };
+            return ResponseResult<AvatarUploadResponse>.BadRequest("请选择图片文件");
 
         var extension = Path.GetExtension(file.FileName).ToLower();
         if (!_uploadOptions.AllowedExtensions.Contains(extension))
-            return new ApiResponse<AvatarUploadResponse> { Code = 400, Message = "只支持 JPG、PNG、GIF 格式的图片" };
+            return ResponseResult<AvatarUploadResponse>.BadRequest("只支持 JPG、PNG、GIF 格式的图片");
 
         if (file.Length > _uploadOptions.MaxFileSizeBytes)
-            return new ApiResponse<AvatarUploadResponse> { Code = 400, Message = $"图片大小不能超过{_uploadOptions.MaxFileSizeMB}MB" };
+            return ResponseResult<AvatarUploadResponse>.BadRequest($"图片大小不能超过{_uploadOptions.MaxFileSizeMB}MB");
 
         var uploadsPath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "avatars");
         if (!Directory.Exists(uploadsPath))
@@ -102,35 +97,32 @@ public class ProfileController : ControllerBase
             }
         }
 
-        return new ApiResponse<AvatarUploadResponse>
+        return new ResponseResult<AvatarUploadResponse>(new AvatarUploadResponse
         {
-            Data = new AvatarUploadResponse
-            {
-                Message = "上传成功",
-                AvatarUrl = $"/uploads/avatars/{fileName}"
-            }
-        };
+            Message = "上传成功",
+            AvatarUrl = $"/uploads/avatars/{fileName}"
+        });
     }
 
     [HttpPut("password")]
-    public async Task<ApiResponse<ProfileResponse>> ChangePassword([FromBody] AdminChangePasswordRequest request)
+    public async Task<ResponseResult<ProfileResponse>> ChangePassword([FromBody] AdminChangePasswordRequest request)
     {
         var adminId = _currentUserService.GetUserId();
         if (adminId == null)
-            return new ApiResponse<ProfileResponse> { Code = 401, Message = "无效的用户标识" };
+            return ResponseResult<ProfileResponse>.Unauthorized("无效的用户标识");
 
         var admin = await _adminService.GetByIdAsync(adminId.Value);
         if (admin == null)
-            return new ApiResponse<ProfileResponse> { Code = 404, Message = "管理员不存在" };
+            return ResponseResult<ProfileResponse>.NotFound("管理员不存在");
 
         if (BCrypt.Net.BCrypt.Verify(request.NewPassword, admin.PasswordHash))
-            return new ApiResponse<ProfileResponse> { Code = 400, Message = "新密码不能与当前密码相同" };
+            return ResponseResult<ProfileResponse>.BadRequest("新密码不能与当前密码相同");
 
         var result = await _adminService.ChangePasswordAsync(adminId.Value, request.CurrentPassword, request.NewPassword);
 
         if (!result.Success)
-            return new ApiResponse<ProfileResponse> { Code = 400, Message = result.Message };
+            return ResponseResult<ProfileResponse>.BadRequest(result.Message);
 
-        return new ApiResponse<ProfileResponse> { Message = "密码修改成功" };
+        return new ResponseResult<ProfileResponse> { Message = "密码修改成功" };
     }
 }

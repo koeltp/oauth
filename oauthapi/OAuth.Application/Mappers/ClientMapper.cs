@@ -13,11 +13,14 @@ public static class ClientMapper
             Name = client.Name,
             ClientId = client.ClientId,
             Description = client.Description,
+            Logo = client.Logo,
             IsPublic = client.IsPublic,
             Status = client.Status.ToString(),
             RedirectUris = client.RedirectUris,
             AllowedScopes = client.AllowedScopes,
-            CreatedAt = client.CreatedAt
+            ReviewerName = client.Reviewer?.Username,
+            CreatedAt = client.CreatedAt,
+            UpdatedAt = client.UpdatedAt
         };
     }
 }

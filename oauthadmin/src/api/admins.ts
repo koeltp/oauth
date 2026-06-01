@@ -1,4 +1,5 @@
 import api from '@/utils/api'
+import type { SearchPager, PagedResult } from './types'
 
 export interface AdminDto {
   id: string
@@ -10,20 +11,7 @@ export interface AdminDto {
   lastLoginAt: string | null
 }
 
-export interface PagedResult<T> {
-  data: T[]
-  total: number
-  page: number
-  pageSize: number
-}
-
-export interface AdminQuery {
-  page?: number
-  pageSize?: number
-  keyword?: string
-}
-
-export const getAdmins = (query?: AdminQuery): Promise<PagedResult<AdminDto>> => {
+export const getAdmins = (query?: SearchPager): Promise<PagedResult<AdminDto>> => {
   return api({
     url: '/admin/admins/list',
     method: 'post',

@@ -2,8 +2,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using OAuth.Application.Interfaces;
 using OAuth.Contracts.Admin;
+using OAuth.Contracts.Client;
 using OAuth.Contracts.Common;
-using OAuth.Domain.Entities;
+using Taipi.Core.RQRS;
 
 namespace OAuth.Server.Controllers;
 
@@ -23,46 +24,56 @@ public class AdminDashboardController : ControllerBase
 
     [HttpGet("dashboard")]
     [Authorize(Policy = AuthPolicies.AdminOnly)]
-    public async Task<ApiResponse<DashboardResponse>> Dashboard()
+    public async Task<ResponseResult<DashboardResponse>> Dashboard()
     {
-        var pendingClients = await _clientService.GetPendingAsync();
-        var allClients = await _clientService.GetAllAsync();
+        var pendingCount = await _clientService.GetClientsCountByStatus(Domain.Entities.ClientStatus.Pending);
+        var approvedCount = await _clientService.GetClientsCountByStatus(Domain.Entities.ClientStatus.Approved);
+        var totalClients = await _clientService.GetTotalClientsCount();
         var totalUsers = await _userService.GetTotalUsersCount();
 
-        return ApiResponse<DashboardResponse>.Success(new DashboardResponse
+        return new ResponseResult<DashboardResponse>(new DashboardResponse
         {
-            PendingClients = pendingClients.Count,
-            ApprovedClients = allClients.Count(c => c.Status == ClientStatus.Approved),
-            TotalClients = allClients.Count,
+            PendingClients = pendingCount,
+            ApprovedClients = approvedCount,
+            TotalClients = totalClients,
             TotalUsers = totalUsers
         });
     }
 
+    /// <summary>
+    /// 最近活动记录
+    /// </summary>
+    /// <returns></returns>
     [HttpGet("dashboard/recent-activities")]
     [Authorize(Policy = AuthPolicies.AdminOnly)]
-    public async Task<ApiResponse<List<RecentActivityResponse>>> GetRecentActivities()
+    public async Task<ResponseResult<List<RecentActivityResponse>>> GetRecentActivities()
     {
         var activities = new List<RecentActivityResponse>();
 
-        var recentClients = await _clientService.GetAllAsync();
-        var clientActivities = recentClients
-            .Where(c => c.UpdatedAt.HasValue || c.Status != ClientStatus.Draft)
+        var result = await _clientService.GetListAsync(new SearchPager<ClientSearchDto>
+        {
+            PageIndex = 1,
+            PageSize = 10
+        });
+
+        var clientActivities = result.Items
+            .Where(c => c.UpdatedAt.HasValue || c.Status != "Draft")
             .OrderByDescending(c => c.UpdatedAt ?? c.CreatedAt)
             .Take(10)
             .Select(c =>
             {
                 var action = c.Status switch
                 {
-                    ClientStatus.Pending => "提交审核",
-                    ClientStatus.Approved => "已批准",
-                    ClientStatus.Rejected => "已拒绝",
+                    "Pending" => "提交审核",
+                    "Approved" => "已批准",
+                    "Rejected" => "已拒绝",
                     _ => "已更新"
                 };
                 return new RecentActivityResponse
                 {
                     Action = $"客户端 {action}",
                     Description = $"客户端 \"{c.Name}\" {action}",
-                    AdminName = c.Reviewer?.Username ?? "系统",
+                    AdminName = c.ReviewerName ?? "系统",
                     CreatedAt = c.UpdatedAt ?? c.CreatedAt
                 };
             });
@@ -82,6 +93,6 @@ public class AdminDashboardController : ControllerBase
 
         activities = activities.OrderByDescending(a => a.CreatedAt).Take(10).ToList();
 
-        return ApiResponse<List<RecentActivityResponse>>.Success(activities);
+        return new ResponseResult<List<RecentActivityResponse>>(activities);
     }
 }

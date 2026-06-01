@@ -77,13 +77,13 @@
       <!-- 分页区域 -->
       <div class="pagination-area">
         <el-pagination
-          v-model:current-page="currentPage"
+          v-model:current-page="pageIndex"
           v-model:page-size="pageSize"
-          :total="total"
-          :page-sizes="[10, 20, 50, 100]"
+          :total="totalCount"
+          :page-sizes="PAGE_SIZES"
           layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSizeChange"
-          @current-change="handleCurrentChange"
+          @size-change="onPageSizeChange"
+          @current-change="onPageChange"
         />
       </div>
     </el-card>
@@ -154,12 +154,11 @@ import { getClients, approveClient, rejectClient, deleteClient } from '@/api/cli
 import api from '@/utils/api'
 import { formatDate } from '@/utils/format'
 import { getClientStatusType, getClientStatusText } from '@/constants'
+import { usePagination, PAGE_SIZES } from '@/composables/usePagination'
 
 const loading = ref(false)
 const clients = ref<any[]>([])
-const currentPage = ref(1)
-const pageSize = ref(10)
-const total = ref(0)
+const { pageIndex, pageSize, totalCount, onPageSizeChange, onPageChange } = usePagination(loadClients)
 
 const showRegisterDialog = ref(false)
 const showDetailDialog = ref(false)
@@ -190,23 +189,26 @@ onMounted(async () => {
   await loadClients()
 })
 
-const loadClients = async () => {
+async function loadClients() {
   loading.value = true
   try {
     const res = await getClients({
-      page: currentPage.value,
+      pageIndex: pageIndex.value,
       pageSize: pageSize.value,
-      keyword: searchForm.name
+      condition: {
+        name: searchForm.name || undefined,
+        status: searchForm.status || undefined
+      }
     })
-    clients.value = res.data || res
-    total.value = res.total || clients.value.length
+    clients.value = res.items
+    totalCount.value = res.totalCount
   } finally {
     loading.value = false
   }
 }
 
 const handleSearch = () => {
-  currentPage.value = 1
+  pageIndex.value = 1
   loadClients()
 }
 
@@ -214,15 +216,6 @@ const handleReset = () => {
   searchForm.name = ''
   searchForm.status = ''
   handleSearch()
-}
-
-const handleSizeChange = () => {
-  currentPage.value = 1
-  loadClients()
-}
-
-const handleCurrentChange = () => {
-  loadClients()
 }
 
 const handleRegister = async () => {

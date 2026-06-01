@@ -1,97 +1,92 @@
-using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Distributed;
 using Microsoft.Extensions.Options;
 using OAuth.Application.Interfaces;
-using OAuth.Domain.Entities;
-using OAuth.Infrastructure.Data;
+using OAuth.Contracts.Auth;
 using OAuth.Infrastructure.Options;
+using System.Text.Json;
 
 namespace OAuth.Infrastructure.Services;
 
 public class VerificationCodeService : IVerificationCodeService
 {
-    private readonly ApplicationDbContext _context;
+    private readonly IDistributedCache _cache;
     private readonly SecurityOptions _securityOptions;
     private const int CodeLength = 6;
     private static readonly Random _random = new();
 
-    public VerificationCodeService(ApplicationDbContext context, IOptions<SecurityOptions> securityOptions)
+    public VerificationCodeService(IDistributedCache cache, IOptions<SecurityOptions> securityOptions)
     {
-        _context = context;
+        _cache = cache;
         _securityOptions = securityOptions.Value;
     }
 
-    public async Task<VerificationCode> CreateAsync(string? email, string? phone, VerificationCodePurpose purpose, VerificationCodeType type = VerificationCodeType.Email)
+    public async Task<int> CreateAsync(string identifier, VerificationCodeType type, VerificationCodePurpose purpose)
     {
         var code = new string(Enumerable.Range(0, CodeLength).Select(_ => _random.Next(0, 10).ToString()[0]).ToArray());
+        var cacheKey = BuildCacheKey(identifier, purpose);
+        var expiresInMinutes = _securityOptions.VerificationCodeExpirationMinutes;
 
-        var verificationCode = new VerificationCode
+        var value = JsonSerializer.SerializeToUtf8Bytes(new VerificationCodeValue
         {
-            Email = email,
-            Phone = phone,
             Code = code,
-            Type = type,
-            Purpose = purpose,
-            ExpiresAt = DateTime.UtcNow.AddMinutes(_securityOptions.VerificationCodeExpirationMinutes)
-        };
+            RetryCount = 0
+        });
 
-        _context.VerificationCodes.Add(verificationCode);
-        await _context.SaveChangesAsync();
+        await _cache.SetAsync(cacheKey, value, new DistributedCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(expiresInMinutes)
+        });
 
-        return verificationCode;
+        return expiresInMinutes * 60;
     }
 
-    public async Task<bool> ValidateAsync(string? email, string? phone, string code, VerificationCodePurpose purpose)
+    public async Task<bool> ValidateAsync(string identifier, string code, VerificationCodePurpose purpose)
     {
-        var query = _context.VerificationCodes
-            .Where(v => v.Code == code && v.Purpose == purpose && v.ExpiresAt > DateTime.UtcNow);
+        var cacheKey = BuildCacheKey(identifier, purpose);
+        var cached = await _cache.GetAsync(cacheKey);
 
-        if (email != null)
-        {
-            query = query.Where(v => v.Email == email);
-        }
-        else if (phone != null)
-        {
-            query = query.Where(v => v.Phone == phone);
-        }
-        else
+        if (cached == null)
         {
             return false;
         }
 
-        var verificationCode = await query.FirstOrDefaultAsync();
-        if (verificationCode == null)
+        var value = JsonSerializer.Deserialize<VerificationCodeValue>(cached);
+        if (value == null)
         {
             return false;
         }
 
-        verificationCode.RetryCount++;
-
-        if (verificationCode.RetryCount >= _securityOptions.MaxVerificationCodeRetry)
+        if (value.Code != code)
         {
-            _context.VerificationCodes.Remove(verificationCode);
+            value.RetryCount++;
+
+            if (value.RetryCount >= _securityOptions.MaxVerificationCodeRetry)
+            {
+                await _cache.RemoveAsync(cacheKey);
+                return false;
+            }
+
+            var updatedBytes = JsonSerializer.SerializeToUtf8Bytes(value);
+            await _cache.SetAsync(cacheKey, updatedBytes, new DistributedCacheEntryOptions
+            {
+                AbsoluteExpirationRelativeToNow = TimeSpan.FromMinutes(_securityOptions.VerificationCodeExpirationMinutes)
+            });
+
+            return false;
         }
 
-        await _context.SaveChangesAsync();
-        return verificationCode.RetryCount <= _securityOptions.MaxVerificationCodeRetry;
+        await _cache.RemoveAsync(cacheKey);
+        return true;
     }
 
-    public async Task DeleteAsync(Guid id)
+    private static string BuildCacheKey(string identifier, VerificationCodePurpose purpose)
     {
-        var code = await _context.VerificationCodes.FindAsync(id);
-        if (code != null)
-        {
-            _context.VerificationCodes.Remove(code);
-            await _context.SaveChangesAsync();
-        }
+        return $"verification_code:{purpose:D}:{identifier}";
     }
 
-    public async Task DeleteExpiredAsync()
+    private class VerificationCodeValue
     {
-        var expiredCodes = await _context.VerificationCodes
-            .Where(v => v.ExpiresAt < DateTime.UtcNow)
-            .ToListAsync();
-
-        _context.VerificationCodes.RemoveRange(expiredCodes);
-        await _context.SaveChangesAsync();
+        public string Code { get; set; } = string.Empty;
+        public int RetryCount { get; set; }
     }
 }

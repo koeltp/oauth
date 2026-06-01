@@ -1,7 +1,11 @@
 using Microsoft.EntityFrameworkCore;
 using OAuth.Application.Interfaces;
+using OAuth.Application.Mappers;
+using OAuth.Contracts.Client;
 using OAuth.Domain.Entities;
 using OAuth.Infrastructure.Data;
+using Taipi.Core.Linq;
+using Taipi.Core.RQRS;
 
 namespace OAuth.Infrastructure.Services;
 
@@ -16,12 +20,32 @@ public class ClientService : IClientService
         _encryptionService = encryptionService;
     }
 
-    public async Task<List<Client>> GetAllAsync()
+    public async Task<PagerResponse<ClientDto>> GetListAsync(SearchPager<ClientSearchDto> query)
     {
-        return await _context.Clients
+        var q = _context.Clients
             .Include(c => c.Reviewer)
-            .OrderByDescending(c => c.CreatedAt)
+            .AsQueryable();
+
+        q = q.WhereIf(!string.IsNullOrEmpty(query.Condition?.Name), c => c.Name.Contains(query.Condition!.Name!)) ;
+
+        q = q.WhereIf(!string.IsNullOrEmpty(query.Condition?.Status), c =>
+            c.Status.ToString() == query.Condition!.Status);
+
+        var total = await q.CountAsync();
+
+        var items = await q
+            .OrderBy(c => c.Name)
+            .Page(query)
+            .Select(c => c.ToDto())
             .ToListAsync();
+
+        return new PagerResponse<ClientDto>
+        {
+            Items = items,
+            TotalCount = total,
+            PageIndex = query.PageIndex,
+            PageSize = query.PageSize
+        };
     }
 
     public async Task<List<Client>> GetPendingAsync()

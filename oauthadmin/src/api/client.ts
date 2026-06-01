@@ -1,10 +1,11 @@
 import api from '@/utils/api'
+import type { SearchPager } from './types'
 
-export const getClients = (params?: { page?: number; pageSize?: number; keyword?: string }) => {
+export const getClients = (data?: SearchPager<{ name?: string; status?: string }>) => {
   return api({
     url: '/admin/clients',
-    method: 'get',
-    params
+    method: 'post',
+    data
   })
 }
 
