@@ -9,7 +9,7 @@
           </div>
         </template>
         <el-table :data="authorizedApps" v-loading="loading">
-          <el-table-column label="Logo" width="55">
+          <el-table-column label="Logo" width="80">
             <template #default="{ row }">
               <el-avatar :size="32" :src="row.logo" shape="square">
                 {{ row.clientName?.charAt(0)?.toUpperCase() || 'A' }}

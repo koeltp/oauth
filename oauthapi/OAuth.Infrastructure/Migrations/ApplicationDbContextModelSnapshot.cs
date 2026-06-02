@@ -62,7 +62,7 @@ namespace OAuth.Infrastructure.Migrations
                     b.HasIndex("Username")
                         .IsUnique();
 
-                    b.ToTable("Admins");
+                    b.ToTable("Admins", (string)null);
                 });
 
             modelBuilder.Entity("OAuth.Domain.Entities.AdminRefreshToken", b =>
@@ -96,7 +96,7 @@ namespace OAuth.Infrastructure.Migrations
                     b.HasIndex("Token")
                         .IsUnique();
 
-                    b.ToTable("AdminRefreshTokens");
+                    b.ToTable("AdminRefreshTokens", (string)null);
                 });
 
             modelBuilder.Entity("OAuth.Domain.Entities.Authorization", b =>
@@ -143,7 +143,7 @@ namespace OAuth.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Authorizations");
+                    b.ToTable("Authorizations", (string)null);
                 });
 
             modelBuilder.Entity("OAuth.Domain.Entities.Client", b =>
@@ -217,7 +217,7 @@ namespace OAuth.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Clients");
+                    b.ToTable("Clients", (string)null);
                 });
 
             modelBuilder.Entity("OAuth.Domain.Entities.RefreshToken", b =>
@@ -260,7 +260,7 @@ namespace OAuth.Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("RefreshTokens");
+                    b.ToTable("RefreshTokens", (string)null);
                 });
 
             modelBuilder.Entity("OAuth.Domain.Entities.User", b =>
@@ -315,7 +315,7 @@ namespace OAuth.Infrastructure.Migrations
                     b.HasIndex("Username")
                         .IsUnique();
 
-                    b.ToTable("Users");
+                    b.ToTable("Users", (string)null);
                 });
 
             modelBuilder.Entity("OAuth.Domain.Entities.UserExternalAccount", b =>
@@ -353,7 +353,7 @@ namespace OAuth.Infrastructure.Migrations
                     b.HasIndex("Provider", "ProviderUserId")
                         .IsUnique();
 
-                    b.ToTable("UserExternalAccounts");
+                    b.ToTable("UserExternalAccounts", (string)null);
                 });
 
             modelBuilder.Entity("OpenIddict.EntityFrameworkCore.Models.OpenIddictEntityFrameworkCoreApplication", b =>

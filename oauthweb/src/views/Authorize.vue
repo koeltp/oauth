@@ -50,6 +50,7 @@
       <p v-if="!loading && redirectUri" class="redirect-info">
         授权后将跳转到：<span class="redirect-uri">{{ displayRedirectUri }}</span>
       </p>
+      </div>
     </div>
   </div>
 </template>

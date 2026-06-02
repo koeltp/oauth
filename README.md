@@ -24,6 +24,12 @@ dotnet restore
 dotnet run --project OAuth.Server
 ```
 
+### 数据库迁移
+```
+cd PS D:\work\prod\oauth\oauthapi>
+dotnet ef database update --project OAuth.Infrastructure --startup-project OAuth.Server
+```
+
 ### 前端
 
 ```bash
