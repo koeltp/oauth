@@ -95,7 +95,7 @@
         <el-divider />
         <el-form :model="confirm2FAForm" ref="confirm2FAFormRef" label-width="80px" class="full-width-form">
           <el-form-item label="验证码" prop="code" :rules="[{ required: true, message: '请输入验证码' }]">
-            <el-input v-model="confirm2FAForm.code" placeholder="请输入 Authenticator 中的6位验证码" maxlength="6" />
+            <el-input-otp v-model="confirm2FAForm.code" :length="6" placeholder="请输入验证码" />
           </el-form-item>
         </el-form>
       </div>
@@ -109,7 +109,7 @@
     <el-dialog v-model="showDisable2FAModal" title="禁用两步验证" width="400px" :close-on-click-modal="false" class="dialog-with-spacing">
       <el-form :model="disable2FAForm" label-width="80px">
         <el-form-item label="验证码" prop="code">
-          <el-input v-model="disable2FAForm.code" placeholder="请输入两步验证码" />
+          <el-input-otp v-model="disable2FAForm.code" :length="6" placeholder="请输入验证码" />
         </el-form-item>
       </el-form>
       <template #footer>

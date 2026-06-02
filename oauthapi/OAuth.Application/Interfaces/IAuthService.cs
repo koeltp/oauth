@@ -6,6 +6,7 @@ public interface IAuthService
 {
     Task<AuthRegisterResult> RegisterAsync(string username, string email, string password);
     Task<AuthLoginResult> LoginWithPasswordAsync(string email, string password, string? twoFaCode);
+    Task<AuthLoginResult> RefreshTokenAsync(string refreshToken);
     Task<AuthLoginResult> VerifyCodeAsync(string identifier, VerificationCodeType type, string code, VerificationCodePurpose purpose);
     Task<AuthLoginResult> Verify2FAAsync(string userId, string code);
     Task<TwoFactorSetupResult> Enable2FAAsync(Guid userId);
@@ -13,6 +14,10 @@ public interface IAuthService
     Task Disable2FAAsync(Guid userId, string code);
     Task ChangePasswordAsync(Guid userId, string currentPassword, string newPassword);
     Task BindPhoneAsync(Guid userId, string phone, string code);
+    Task ForgotPasswordAsync(string email);
+    Task ResetPasswordAsync(string email, string code, string newPassword);
+    Task SendVerificationEmailAsync(Guid userId, string frontendBaseUrl);
+    Task VerifyEmailAsync(string token);
 }
 
 public record AuthRegisterResult(Guid UserId, string Username, string Email);
@@ -24,7 +29,9 @@ public record AuthLoginResult(
     bool TwoFactorEnabled,
     string AccessToken,
     int ExpiresIn,
-    bool IsAdmin
+    bool IsAdmin,
+    string RefreshToken = "",
+    int RefreshExpiresIn = 0
 );
 
 public record TwoFactorSetupResult(string Secret, string QrCodeUrl);

@@ -1,10 +1,19 @@
 <template>
   <div class="register-container">
+    <div class="bubble bubble-1"></div>
+    <div class="bubble bubble-2"></div>
+    <div class="bubble bubble-3"></div>
+    <div class="bubble bubble-4"></div>
+    <div class="bubble bubble-5"></div>
+
     <div class="register-box">
       <router-link to="/" class="home-icon" title="返回首页">
         <el-icon><HomeFilled /></el-icon>
       </router-link>
-      <h1 class="title">用户注册</h1>
+      <div class="logo-area">
+        <img src="@/assets/logo.png" alt="logo" />
+      </div>
+      <h1 class="title">TP OAuth 注册</h1>
       
       <el-form ref="formRef" :model="form" :rules="rules" label-position="top">
         <el-form-item prop="username">
@@ -139,12 +148,96 @@ const handleRegister = async () => {
 .register-container {
   width: 100%;
   min-height: 100vh;
-  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f5f7fa;
+  background: linear-gradient(135deg, #f0f5ff 0%, #e8f0fe 50%, #f5f0ff 100%);
+  position: relative;
+  overflow: hidden;
   padding: 40px 20px;
+}
+
+.register-container::before {
+  content: '';
+  position: absolute;
+  top: -250px;
+  right: -200px;
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(64,158,255,0.1) 0%, transparent 70%);
+  border-radius: 50%;
+}
+
+.register-container::after {
+  content: '';
+  position: absolute;
+  bottom: -180px;
+  left: -150px;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(103,194,58,0.07) 0%, transparent 70%);
+  border-radius: 50%;
+}
+
+.bubble {
+  position: absolute;
+  border-radius: 50%;
+  z-index: 0;
+  animation: float 6s ease-in-out infinite;
+}
+
+.bubble-1 {
+  width: 80px;
+  height: 80px;
+  top: 15%;
+  left: 8%;
+  background: radial-gradient(circle at 30% 30%, rgba(64,158,255,0.12), rgba(64,158,255,0.04));
+  animation-delay: 0s;
+}
+
+.bubble-2 {
+  width: 120px;
+  height: 120px;
+  top: 60%;
+  left: 5%;
+  background: radial-gradient(circle at 30% 30%, rgba(124,58,237,0.1), rgba(124,58,237,0.03));
+  animation-delay: 1s;
+  animation-duration: 8s;
+}
+
+.bubble-3 {
+  width: 60px;
+  height: 60px;
+  top: 25%;
+  right: 12%;
+  background: radial-gradient(circle at 30% 30%, rgba(103,194,58,0.1), rgba(103,194,58,0.03));
+  animation-delay: 2s;
+  animation-duration: 7s;
+}
+
+.bubble-4 {
+  width: 100px;
+  height: 100px;
+  top: 70%;
+  right: 8%;
+  background: radial-gradient(circle at 30% 30%, rgba(64,158,255,0.08), rgba(64,158,255,0.02));
+  animation-delay: 0.5s;
+  animation-duration: 9s;
+}
+
+.bubble-5 {
+  width: 40px;
+  height: 40px;
+  top: 45%;
+  left: 50%;
+  background: radial-gradient(circle at 30% 30%, rgba(124,58,237,0.12), rgba(124,58,237,0.04));
+  animation-delay: 3s;
+  animation-duration: 6s;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-20px) scale(1.05); }
 }
 
 .home-icon {
@@ -160,11 +253,12 @@ const handleRegister = async () => {
   text-decoration: none;
   border-radius: 8px;
   transition: all 0.3s;
+  z-index: 1;
 }
 
 .home-icon:hover {
   color: #409eff;
-  background: #f5f7fa;
+  background: #f0f5ff;
 }
 
 .register-box {
@@ -173,8 +267,19 @@ const handleRegister = async () => {
   margin: 0 auto;
   padding: 40px;
   background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border-radius: 16px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.08);
+  border: 1px solid #f0f2f5;
+  z-index: 1;
+}
+
+.logo-area {
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.logo-area img {
+  height: 56px;
 }
 
 .title {

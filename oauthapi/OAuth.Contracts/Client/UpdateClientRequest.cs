@@ -9,6 +9,8 @@ public class UpdateClientRequest
 
     public string? Description { get; set; }
 
+    public string? Logo { get; set; }
+
     [Required(ErrorMessage = "回调地址不能为空")]
     public string RedirectUris { get; set; } = string.Empty;
 

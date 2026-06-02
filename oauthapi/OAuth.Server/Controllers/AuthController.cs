@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
 using OAuth.Application.Interfaces;
+using OAuth.Contracts.Admin;
 using OAuth.Contracts.Auth;
 using OAuth.Contracts.User;
 using OAuth.Domain.Exceptions;
@@ -37,6 +39,11 @@ public class AuthController : ControllerBase
         try
         {
             var result = await _authService.RegisterAsync(request.Username, request.Email, request.Password);
+
+            var configuration = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+            var frontendBaseUrl = configuration.GetValue<string>("FrontendBaseUrl") ?? $"{Request.Scheme}://{Request.Host}";
+            _ = _authService.SendVerificationEmailAsync(result.UserId, frontendBaseUrl);
+
             return new ResponseResult<RegisterResponse>(new RegisterResponse
             {
                 UserId = result.UserId,
@@ -64,8 +71,10 @@ public class AuthController : ControllerBase
                 Email = result.Email,
                 TwoFactorEnabled = result.TwoFactorEnabled,
                 AccessToken = result.AccessToken,
+                RefreshToken = result.RefreshToken,
                 TokenType = "Bearer",
                 ExpiresIn = result.ExpiresIn,
+                RefreshExpiresIn = result.RefreshExpiresIn,
                 IsAdmin = result.IsAdmin
             });
         }
@@ -73,13 +82,31 @@ public class AuthController : ControllerBase
         {
             return new ResponseResult<LoginResponse>(new LoginResponse { Require2FA = true, UserId = ex.UserId });
         }
-        catch (UnauthorizedAccessException ex)
-        {
-            return ResponseResult<LoginResponse>.Unauthorized(ex.Message);
-        }
         catch (InvalidOperationException ex)
         {
             return ResponseResult<LoginResponse>.BadRequest(ex.Message);
+        }
+    }
+
+    [AllowAnonymous]
+    [HttpPost("refresh")]
+    public async Task<ResponseResult<TokenRefreshResponse>> Refresh([FromBody] RefreshTokenRequest request)
+    {
+        try
+        {
+            var result = await _authService.RefreshTokenAsync(request.RefreshToken);
+            return new ResponseResult<TokenRefreshResponse>(new TokenRefreshResponse
+            {
+                AccessToken = result.AccessToken,
+                RefreshToken = result.RefreshToken,
+                TokenType = "Bearer",
+                ExpiresIn = result.ExpiresIn,
+                RefreshExpiresIn = result.RefreshExpiresIn
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ResponseResult<TokenRefreshResponse>.BadRequest(ex.Message);
         }
     }
 
@@ -131,18 +158,16 @@ public class AuthController : ControllerBase
                 Email = result.Email,
                 TwoFactorEnabled = result.TwoFactorEnabled,
                 AccessToken = result.AccessToken,
+                RefreshToken = result.RefreshToken,
                 TokenType = "Bearer",
                 ExpiresIn = result.ExpiresIn,
+                RefreshExpiresIn = result.RefreshExpiresIn,
                 IsAdmin = result.IsAdmin
             });
         }
         catch (TwoFactorRequiredException ex)
         {
             return new ResponseResult<LoginResponse>(new LoginResponse { Require2FA = true, UserId = ex.UserId });
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return ResponseResult<LoginResponse>.Unauthorized(ex.Message);
         }
         catch (InvalidOperationException ex)
         {
@@ -164,8 +189,10 @@ public class AuthController : ControllerBase
                 Email = result.Email,
                 TwoFactorEnabled = result.TwoFactorEnabled,
                 AccessToken = result.AccessToken,
+                RefreshToken = result.RefreshToken,
                 TokenType = "Bearer",
                 ExpiresIn = result.ExpiresIn,
+                RefreshExpiresIn = result.RefreshExpiresIn,
                 IsAdmin = result.IsAdmin
             });
         }
@@ -342,4 +369,70 @@ public class AuthController : ControllerBase
             return ResponseResult<UserInfoResponse>.BadRequest(ex.Message);
         }
     }
+
+    [AllowAnonymous]
+    [HttpPost("forgot-password")]
+    public async Task<ResponseResult<SendCodeResponse>> ForgotPassword([FromBody] ForgotPasswordRequest request)
+    {
+        var expiresIn = await _verificationCodeService.CreateAsync(request.Email, VerificationCodeType.Email, VerificationCodePurpose.ResetPassword);
+        return new ResponseResult<SendCodeResponse>(new SendCodeResponse { ExpiresIn = expiresIn }) { Message = "验证码已发送到您的邮箱" };
+    }
+
+    [AllowAnonymous]
+    [HttpPost("reset-password")]
+    public async Task<ResponseResult<object>> ResetPassword([FromBody] ResetPasswordRequest request)
+    {
+        try
+        {
+            await _authService.ResetPasswordAsync(request.Email, request.Code, request.NewPassword);
+            return new ResponseResult<object> { Message = "密码重置成功" };
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ResponseResult<object>.BadRequest(ex.Message);
+        }
+    }
+
+    [HttpPost("send-verification-email")]
+    [Authorize]
+    public async Task<ResponseResult<object>> SendVerificationEmail()
+    {
+        var userId = _currentUserService.GetUserId();
+        if (userId == null)
+        {
+            return ResponseResult<object>.Unauthorized("未授权");
+        }
+
+        try
+        {
+            var configuration = HttpContext.RequestServices.GetRequiredService<IConfiguration>();
+            var frontendBaseUrl = configuration.GetValue<string>("FrontendBaseUrl") ?? $"{Request.Scheme}://{Request.Host}";
+            await _authService.SendVerificationEmailAsync(userId.Value, frontendBaseUrl);
+            return new ResponseResult<object> { Message = "验证邮件已发送，请查收" };
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ResponseResult<object>.BadRequest(ex.Message);
+        }
+    }
+
+    [AllowAnonymous]
+    [HttpPost("verify-email")]
+    public async Task<ResponseResult<object>> VerifyEmail([FromBody] VerifyEmailRequest request)
+    {
+        try
+        {
+            await _authService.VerifyEmailAsync(request.Token);
+            return new ResponseResult<object> { Message = "邮箱验证成功" };
+        }
+        catch (InvalidOperationException ex)
+        {
+            return ResponseResult<object>.BadRequest(ex.Message);
+        }
+    }
+}
+
+public class VerifyEmailRequest
+{
+    public string Token { get; set; } = string.Empty;
 }

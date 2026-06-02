@@ -1,7 +1,7 @@
 {
   "OAuthServer": {
-    "BaseUrl": "https://sso.taipi.top",
-    "ClientId": "your-public-client-id",
+    "BaseUrl": "http://localhost:5000",
+    "ClientId": "test-public-client",
     "RedirectUri": "http://localhost:5003/callback"
   }
 }

@@ -9,6 +9,13 @@
           </div>
         </template>
         <el-table :data="clients" v-loading="loading" empty-text="暂无应用" stripe>
+          <el-table-column label="Logo" width="60">
+            <template #default="{ row }">
+              <el-avatar :size="36" :src="row.logo" shape="square">
+                {{ row.name?.charAt(0)?.toUpperCase() || 'A' }}
+              </el-avatar>
+            </template>
+          </el-table-column>
           <el-table-column prop="name" label="应用名称" min-width="140" />
           <el-table-column prop="description" label="描述" min-width="200" show-overflow-tooltip />
           <el-table-column prop="clientId" label="Client ID" show-overflow-tooltip min-width="250" />
@@ -42,9 +49,14 @@
     <!-- 查看详情弹窗 -->
     <el-dialog v-model="showDetailDialog" title="应用详情" width="700px">
       <div class="client-detail" v-if="currentClient">
-        <div class="detail-row">
-          <span class="detail-label">应用名称：</span>
-          <span class="detail-value">{{ currentClient.name }}</span>
+        <div class="detail-row detail-header">
+          <el-avatar :size="48" :src="currentClient.logo" shape="square">
+            {{ currentClient.name?.charAt(0)?.toUpperCase() || 'A' }}
+          </el-avatar>
+          <div>
+            <div class="detail-title">{{ currentClient.name }}</div>
+            <el-tag :type="statusType(currentClient.status)" size="small">{{ statusLabel(currentClient.status) }}</el-tag>
+          </div>
         </div>
         <div class="detail-row">
           <span class="detail-label">描述：</span>

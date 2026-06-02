@@ -18,6 +18,7 @@ public class AuthorizationResponse
     public Guid Id { get; set; }
     public Guid ClientId { get; set; }
     public string? ClientName { get; set; }
+    public string? Logo { get; set; }
     public string? Scope { get; set; }
     public DateTime CreatedAt { get; set; }
 }

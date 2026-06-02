@@ -14,6 +14,16 @@ const routes: RouteRecordRaw[] = [
     component: () => import('@/views/Login.vue')
   },
   {
+    path: '/forgot-password',
+    name: 'ForgotPassword',
+    component: () => import('@/views/ForgotPassword.vue')
+  },
+  {
+    path: '/verify-email',
+    name: 'VerifyEmail',
+    component: () => import('@/views/VerifyEmail.vue')
+  },
+  {
     path: '/auth/github/callback',
     name: 'GithubCallback',
     component: () => import('@/views/GithubCallback.vue')
@@ -22,6 +32,11 @@ const routes: RouteRecordRaw[] = [
     path: '/register',
     name: 'Register',
     component: () => import('@/views/Register.vue')
+  },
+  {
+    path: '/docs',
+    name: 'Docs',
+    component: () => import('@/views/Docs.vue')
   },
   {
     path: '/client/register',

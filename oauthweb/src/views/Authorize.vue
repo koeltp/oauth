@@ -6,15 +6,21 @@
         <p>正在加载...</p>
       </div>
 
-      <div v-else class="client-info">
-        <div class="client-logo-wrapper">
-          <el-icon :size="64" class="client-logo">
-            <UserFilled />
-          </el-icon>
+      <div v-else class="authorize-content">
+        <div class="brand-header">
+          <img src="@/assets/logo.png" alt="TP OAuth" class="brand-logo" />
+          <span class="brand-name">TP OAuth 授权服务</span>
         </div>
-        <h2 class="client-name">{{ clientName || '未知应用' }}</h2>
-        <p class="client-desc">{{ clientDescription || '正在请求访问您的账户' }}</p>
-      </div>
+
+        <div class="client-info">
+          <div class="client-logo-wrapper">
+            <el-avatar :size="64" :src="clientLogo" shape="square" class="client-logo-avatar">
+              {{ clientName?.charAt(0)?.toUpperCase() || 'A' }}
+            </el-avatar>
+          </div>
+          <h2 class="client-name">{{ clientName || '未知应用' }}</h2>
+          <p class="client-desc">{{ clientDescription || '请求访问您的账户' }}</p>
+        </div>
 
       <el-card v-if="!loading" class="scope-list">
         <template #header>
@@ -52,7 +58,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Loading, Check, User, UserFilled } from '@element-plus/icons-vue'
+import { Loading, Check, User } from '@element-plus/icons-vue'
 import api from '@/utils/api'
 
 const route = useRoute()
@@ -62,6 +68,7 @@ const loading = ref(true)
 const authorizing = ref(false)
 const clientName = ref('')
 const clientDescription = ref('')
+const clientLogo = ref('')
 const redirectUri = ref('')
 const requestedScopes = ref<string[]>([])
 
@@ -111,6 +118,7 @@ onMounted(async () => {
     const res: any = await api.get(`/clients/${clientId}`)
     clientName.value = res.name
     clientDescription.value = res.description || ''
+    clientLogo.value = res.logo || ''
     
     // 如果客户端配置了 scopes，覆盖请求的 scopes
     if (res.allowedScopes && res.allowedScopes.length > 0) {
@@ -224,19 +232,38 @@ const handleCancel = () => {
   margin-bottom: 30px;
 }
 
+.brand-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin-bottom: 28px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.brand-logo {
+  height: 32px;
+}
+
+.brand-name {
+  font-size: 18px;
+  font-weight: 600;
+  color: #333;
+}
+
 .client-logo-wrapper {
   width: 80px;
   height: 80px;
   margin: 0 auto 20px;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  border-radius: 16px;
   display: flex;
   align-items: center;
   justify-content: center;
 }
 
-.client-logo {
-  color: white;
+.client-logo-avatar {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border: none;
 }
 
 .client-name {

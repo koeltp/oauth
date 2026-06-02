@@ -8,7 +8,7 @@ using OAuth.Domain.Entities;
 namespace OAuth.Server.Controllers;
 
 [ApiController]
-[Route("api/{version:apiVersion}/[controller]")]
+[Route("api/{version:apiVersion}/stats")]
 [ApiVersion("1.0")]
 public class StatsController : ControllerBase
 {

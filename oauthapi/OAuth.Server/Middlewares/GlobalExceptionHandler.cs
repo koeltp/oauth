@@ -1,4 +1,3 @@
-using System.Net;
 using System.Text.Json;
 using Taipi.Core.RQRS;
 
@@ -32,66 +31,106 @@ public class GlobalExceptionHandler
     {
         context.Response.ContentType = "application/json; charset=utf-8";
 
+        // OAuth endpoints (OpenIddict /connect/*) should return OAuth standard error format
+        if (context.Request.Path.StartsWithSegments("/connect"))
+        {
+            return HandleOAuthExceptionAsync(context, exception);
+        }
+
+        int code;
         string message;
 
         switch (exception)
         {
             case UnauthorizedAccessException:
-                context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
+                code = 401;
                 message = "未授权访问";
                 break;
 
             case ArgumentException argEx:
-                context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                code = 400;
                 message = argEx.Message;
                 break;
 
             case KeyNotFoundException:
-                context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                code = 404;
                 message = "资源未找到";
                 break;
 
             case Microsoft.EntityFrameworkCore.DbUpdateException:
-                context.Response.StatusCode = (int)HttpStatusCode.Conflict;
+                code = 409;
                 message = "数据库操作失败，请稍后重试";
                 break;
 
             case FormatException:
-                context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                code = 400;
                 message = "输入格式无效，请检查输入";
                 break;
 
             case InvalidOperationException:
                 if (exception.Message.Contains("用户不存在"))
                 {
-                    context.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
+                    code = 401;
                     message = "用户不存在，请重新登录";
                 }
                 else
                 {
-                    context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                    code = 400;
                     message = exception.Message;
                 }
                 break;
 
             case NotSupportedException:
             case System.Text.Json.JsonException:
-                context.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+                code = 400;
                 message = "请求数据格式错误，请检查输入";
                 break;
 
             default:
-                context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
+                code = 500;
                 message = "服务器内部错误";
                 break;
         }
 
         var response = new StatusResponseResult
         {
-            Code = context.Response.StatusCode,
+            Code = code,
             Message = message,
             Timestamp = DateTime.UtcNow
         };
+
+        return context.Response.WriteAsync(JsonSerializer.Serialize(response));
+    }
+
+    private static Task HandleOAuthExceptionAsync(HttpContext context, Exception exception)
+    {
+        string error;
+        string description;
+
+        switch (exception)
+        {
+            case UnauthorizedAccessException:
+                error = "access_denied";
+                description = "访问被拒绝";
+                break;
+
+            case ArgumentException:
+                error = "invalid_request";
+                description = exception.Message;
+                break;
+
+            case KeyNotFoundException:
+                error = "invalid_request";
+                description = "请求的资源未找到";
+                break;
+
+            default:
+                error = "server_error";
+                description = "服务器内部错误";
+                break;
+        }
+
+        var response = new { error, error_description = description };
 
         return context.Response.WriteAsync(JsonSerializer.Serialize(response));
     }

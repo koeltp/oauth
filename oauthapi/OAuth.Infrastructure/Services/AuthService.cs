@@ -1,8 +1,12 @@
+using Microsoft.Extensions.Caching.Distributed;
+using Microsoft.Extensions.Options;
 using OAuth.Application.Interfaces;
 using OAuth.Contracts.Auth;
 using OAuth.Domain.Entities;
 using OAuth.Domain.Exceptions;
 using OAuth.Infrastructure.Helpers;
+using OAuth.Infrastructure.Options;
+using System.Text.Json;
 
 namespace OAuth.Infrastructure.Services;
 
@@ -12,17 +16,29 @@ public class AuthService : IAuthService
     private readonly IVerificationCodeService _verificationCodeService;
     private readonly IAdminService _adminService;
     private readonly IJwtService _jwtService;
+    private readonly IRefreshTokenService _refreshTokenService;
+    private readonly TokenOptions _tokenOptions;
+    private readonly IDistributedCache _cache;
+    private readonly IEmailService _emailService;
 
     public AuthService(
         IUserService userService,
         IVerificationCodeService verificationCodeService,
         IAdminService adminService,
-        IJwtService jwtService)
+        IJwtService jwtService,
+        IRefreshTokenService refreshTokenService,
+        IOptions<TokenOptions> tokenOptions,
+        IDistributedCache cache,
+        IEmailService emailService)
     {
         _userService = userService;
         _verificationCodeService = verificationCodeService;
         _adminService = adminService;
         _jwtService = jwtService;
+        _refreshTokenService = refreshTokenService;
+        _tokenOptions = tokenOptions.Value;
+        _cache = cache;
+        _emailService = emailService;
     }
 
     public async Task<AuthRegisterResult> RegisterAsync(string username, string email, string password)
@@ -48,18 +64,18 @@ public class AuthService : IAuthService
         var user = await _userService.GetByEmailAsync(email);
         if (user == null)
         {
-            throw new UnauthorizedAccessException("邮箱或密码错误");
+            throw new InvalidOperationException("邮箱或密码错误");
         }
 
         var isValid = await _userService.ValidatePasswordAsync(user, password);
         if (!isValid)
         {
-            throw new UnauthorizedAccessException("邮箱或密码错误");
+            throw new InvalidOperationException("邮箱或密码错误");
         }
 
         if (user.Status != UserStatus.Active)
         {
-            throw new UnauthorizedAccessException(user.Status == UserStatus.Banned ? "账户已被禁用" : "账户未激活");
+            throw new InvalidOperationException(user.Status == UserStatus.Banned ? "账户已被禁用" : "账户未激活");
         }
 
         if (user.TwoFactorEnabled)
@@ -73,6 +89,25 @@ public class AuthService : IAuthService
             {
                 throw new InvalidOperationException("两步验证码无效");
             }
+        }
+
+        return await GenerateLoginResult(user);
+    }
+
+    public async Task<AuthLoginResult> RefreshTokenAsync(string refreshToken)
+    {
+        var token = await _refreshTokenService.GetByTokenAsync(refreshToken);
+        if (token == null || token.Revoked || token.ExpiresAt <= DateTime.UtcNow)
+        {
+            throw new InvalidOperationException("刷新令牌无效或已过期");
+        }
+
+        await _refreshTokenService.RevokeAsync(refreshToken);
+
+        var user = await _userService.GetByIdAsync(token.UserId);
+        if (user == null || user.Status != UserStatus.Active)
+        {
+            throw new InvalidOperationException("用户不存在或已被禁用");
         }
 
         return await GenerateLoginResult(user);
@@ -94,12 +129,12 @@ public class AuthService : IAuthService
         var user = await _userService.GetByEmailAsync(identifier);
         if (user == null)
         {
-            throw new UnauthorizedAccessException("用户不存在");
+            throw new InvalidOperationException("用户不存在");
         }
 
         if (user.Status != UserStatus.Active)
         {
-            throw new UnauthorizedAccessException(user.Status == UserStatus.Banned ? "账户已被禁用" : "账户未激活");
+            throw new InvalidOperationException(user.Status == UserStatus.Banned ? "账户已被禁用" : "账户未激活");
         }
 
         if (user.TwoFactorEnabled)
@@ -248,6 +283,7 @@ public class AuthService : IAuthService
     {
         var admin = await _adminService.GetByUsernameAsync(user.Username);
         var token = _jwtService.GenerateUserToken(user, admin?.Role.ToString());
+        var refreshToken = await _refreshTokenService.CreateAsync(user.Id);
 
         return new AuthLoginResult(
             UserId: user.Id,
@@ -256,8 +292,92 @@ public class AuthService : IAuthService
             TwoFactorEnabled: user.TwoFactorEnabled,
             AccessToken: token,
             ExpiresIn: _jwtService.GetExpirationSeconds(),
-            IsAdmin: admin != null
+            IsAdmin: admin != null,
+            RefreshToken: refreshToken.Token,
+            RefreshExpiresIn: _tokenOptions.RefreshTokenExpirationSeconds
         );
+    }
+
+    public async Task ForgotPasswordAsync(string email)
+    {
+        var user = await _userService.GetByEmailAsync(email);
+        if (user == null)
+        {
+            return;
+        }
+
+        await _verificationCodeService.CreateAsync(email, VerificationCodeType.Email, VerificationCodePurpose.ResetPassword);
+    }
+
+    public async Task ResetPasswordAsync(string email, string code, string newPassword)
+    {
+        var user = await _userService.GetByEmailAsync(email);
+        if (user == null)
+        {
+            throw new InvalidOperationException("用户不存在");
+        }
+
+        var isValid = await _verificationCodeService.ValidateAsync(email, code, VerificationCodePurpose.ResetPassword);
+        if (!isValid)
+        {
+            throw new InvalidOperationException("验证码无效或已过期");
+        }
+
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+        await _userService.UpdateAsync(user);
+    }
+
+    public async Task SendVerificationEmailAsync(Guid userId, string frontendBaseUrl)
+    {
+        var user = await _userService.GetByIdAsync(userId);
+        if (user == null)
+        {
+            throw new InvalidOperationException("用户不存在");
+        }
+
+        if (user.EmailVerified)
+        {
+            throw new InvalidOperationException("邮箱已验证");
+        }
+
+        var token = Guid.NewGuid().ToString("N");
+        var cacheKey = $"email_verify:{token}";
+
+        await _cache.SetStringAsync(cacheKey, user.Id.ToString(), new DistributedCacheEntryOptions
+        {
+            AbsoluteExpirationRelativeToNow = TimeSpan.FromHours(24)
+        });
+
+        var verificationUrl = $"{frontendBaseUrl}/verify-email?token={token}";
+        await _emailService.SendAsync(user.Email, "验证您的邮箱",
+            $"请点击以下链接验证您的邮箱：<br/><a href='{verificationUrl}'>{verificationUrl}</a>");
+    }
+
+    public async Task VerifyEmailAsync(string token)
+    {
+        var cacheKey = $"email_verify:{token}";
+        var userIdStr = await _cache.GetStringAsync(cacheKey);
+
+        if (string.IsNullOrEmpty(userIdStr))
+        {
+            throw new InvalidOperationException("验证链接无效或已过期");
+        }
+
+        if (!Guid.TryParse(userIdStr, out var userId))
+        {
+            throw new InvalidOperationException("验证链接无效");
+        }
+
+        var user = await _userService.GetByIdAsync(userId);
+        if (user == null)
+        {
+            throw new InvalidOperationException("用户不存在");
+        }
+
+        user.EmailVerified = true;
+        await _userService.UpdateAsync(user);
+
+        await _cache.RemoveAsync(cacheKey);
     }
 }
 

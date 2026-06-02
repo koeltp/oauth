@@ -74,6 +74,7 @@ public class UserController : ControllerBase
             Id = a.Id,
             ClientId = a.ClientId,
             ClientName = a.Client?.Name,
+            Logo = a.Client?.Logo,
             Scope = a.Scope,
             CreatedAt = a.CreatedAt
         }));
@@ -104,6 +105,7 @@ public class UserController : ControllerBase
             Id = authorization.Id,
             ClientId = authorization.ClientId,
             ClientName = authorization.Client?.Name,
+            Logo = authorization.Client?.Logo,
             Scope = authorization.Scope,
             CreatedAt = authorization.CreatedAt
         };

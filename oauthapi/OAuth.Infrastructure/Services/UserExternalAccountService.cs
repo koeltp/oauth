@@ -26,22 +26,6 @@ public class UserExternalAccountService : IUserExternalAccountService
         return await _context.UserExternalAccounts.FindAsync(id);
     }
 
-    public async Task<UserExternalAccount?> GetByProviderAndUserIdAsync(string provider, string providerUserId)
-    {
-        if (!Enum.TryParse<ExternalProvider>(provider, true, out var providerEnum))
-        {
-            return null;
-        }
-        return await _context.UserExternalAccounts
-            .FirstOrDefaultAsync(a => a.Provider == providerEnum && a.ProviderUserId == providerUserId);
-    }
-
-    public async Task CreateAsync(UserExternalAccount account)
-    {
-        _context.UserExternalAccounts.Add(account);
-        await _context.SaveChangesAsync();
-    }
-
     public async Task DeleteAsync(Guid id)
     {
         var account = await _context.UserExternalAccounts.FindAsync(id);

@@ -74,7 +74,7 @@ public class ClientService : IClientService
         return await _context.Clients.FirstOrDefaultAsync(c => c.ClientId == clientId);
     }
 
-    public async Task<(Client Client, string ClientSecret)> CreateAsync(string name, string? description, string redirectUris, string allowedScopes, Guid? userId = null, bool isPublic = false)
+    public async Task<(Client Client, string ClientSecret)> CreateAsync(string name, string? description, string? logo, string redirectUris, string allowedScopes, Guid? userId = null, bool isPublic = false)
     {
         if (userId.HasValue)
         {
@@ -93,6 +93,7 @@ public class ClientService : IClientService
             ClientSecretEncrypted = isPublic ? string.Empty : _encryptionService.Encrypt(clientSecret),
             Name = name,
             Description = description,
+            Logo = logo,
             RedirectUris = redirectUris,
             AllowedScopes = allowedScopes,
             IsPublic = isPublic,

@@ -51,6 +51,7 @@ public class ClientController : ControllerBase
         var (client, clientSecret) = await _clientService.CreateAsync(
             request.Name,
             request.Description,
+            request.Logo,
             request.RedirectUris,
             request.AllowedScopes,
             userId,
@@ -105,6 +106,7 @@ public class ClientController : ControllerBase
 
         client.Name = request.Name;
         client.Description = request.Description;
+        client.Logo = request.Logo;
         client.RedirectUris = request.RedirectUris;
         client.AllowedScopes = request.AllowedScopes;
         await _clientService.UpdateAsync(client);

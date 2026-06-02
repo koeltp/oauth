@@ -41,76 +41,81 @@ export function createHttp(config: HttpConfig) {
     (error) => Promise.reject(error)
   )
 
+  const handleTokenRefresh = async (originalRequest: any): Promise<any> => {
+    if (originalRequest._retry) {
+      config.logoutHandler()
+      return Promise.reject(new Error('登录已过期'))
+    }
+
+    originalRequest._retry = true
+    const refreshToken = config.refreshTokenGetter()
+
+    if (!refreshToken) {
+      config.logoutHandler()
+      return Promise.reject(new Error('登录已过期'))
+    }
+
+    if (isRefreshing) {
+      return new Promise((resolve, reject) => {
+        pendingRequests.push({ resolve, reject })
+      }).then(() => {
+        originalRequest.headers = originalRequest.headers || {}
+        originalRequest.headers.Authorization = `Bearer ${config.tokenGetter()}`
+        return axiosInstance(originalRequest)
+      })
+    }
+
+    isRefreshing = true
+
+    try {
+      const res = await config.refreshTokenApi(refreshToken)
+      config.tokenSetter(res.accessToken)
+      config.refreshTokenSetter(res.refreshToken)
+
+      pendingRequests.forEach(({ resolve }) => resolve(undefined))
+      pendingRequests = []
+
+      originalRequest.headers = originalRequest.headers || {}
+      originalRequest.headers.Authorization = `Bearer ${config.tokenGetter()}`
+      return axiosInstance(originalRequest)
+    } catch {
+      config.logoutHandler()
+      pendingRequests.forEach(({ reject }) => reject(new Error('登录已过期')))
+      pendingRequests = []
+      return Promise.reject(new Error('登录已过期'))
+    } finally {
+      isRefreshing = false
+    }
+  }
+
   axiosInstance.interceptors.response.use(
     (response) => {
-      const data = response.data
-      // 如果是统一响应格式，提取 data 字段
-      if (data && typeof data === 'object' && 'code' in data && 'data' in data) {
-        return data.data
+      const body = response.data
+
+      if (!body || typeof body !== 'object' || !('code' in body)) {
+        return body
       }
-      return data
+
+      const { code, message } = body
+
+      if (code === 401) {
+        return handleTokenRefresh(response.config)
+      }
+
+      if (code !== 200) {
+        ElMessage.error(message || '请求失败')
+        return Promise.reject(new Error(message))
+      }
+
+      return body.data ?? body
     },
     async (error) => {
-      const originalRequest = error.config as AxiosRequestConfig & { _retry?: boolean }
-      
-      if (error.response?.status === 401) {
-        if (originalRequest._retry) {
-          config.logoutHandler()
-          return Promise.reject(error)
-        }
-
-        originalRequest._retry = true
-        const refreshToken = config.refreshTokenGetter()
-        
-        if (!refreshToken) {
-          config.logoutHandler()
-          return Promise.reject(error)
-        }
-        
-        if (isRefreshing) {
-          return new Promise((resolve, reject) => {
-            pendingRequests.push({ resolve, reject })
-          }).then(() => {
-            originalRequest.headers = originalRequest.headers || {}
-            originalRequest.headers.Authorization = `Bearer ${config.tokenGetter()}`
-            return axiosInstance(originalRequest)
-          })
-        }
-
-        isRefreshing = true
-
-        try {
-          const res = await config.refreshTokenApi(refreshToken)
-          config.tokenSetter(res.accessToken)
-          config.refreshTokenSetter(res.refreshToken)
-          
-          pendingRequests.forEach(({ resolve }) => resolve(undefined))
-          pendingRequests = []
-
-          originalRequest.headers = originalRequest.headers || {}
-          originalRequest.headers.Authorization = `Bearer ${config.tokenGetter()}`
-          return axiosInstance(originalRequest)
-        } catch {
-          config.logoutHandler()
-          pendingRequests.forEach(({ reject }) => reject(error))
-          pendingRequests = []
-          return Promise.reject(error)
-        } finally {
-          isRefreshing = false
-        }
+      if (!error.response) {
+        ElMessage.error('网络连接失败，请检查网络')
+        return Promise.reject(error)
       }
 
-      const statusMessages: Record<number, string> = {
-        400: '请求参数错误',
-        401: '未授权，请重新登录',
-        403: '没有权限访问',
-        404: '请求的资源不存在',
-        500: '服务器内部错误',
-        502: '网关错误',
-        503: '服务暂不可用'
-      }
-      const message = error.response?.data?.message || error.response?.data?.title || statusMessages[error.response?.status] || error.message || '网络错误'
-      ElMessage.error(message)
+      ElMessage.error(error.response?.data?.message || '网络错误')
       return Promise.reject(error)
     }
   )

@@ -21,7 +21,7 @@ public class ValidateModelAttribute : ActionFilterAttribute
                 .Where(m => !string.IsNullOrEmpty(m));
 
             var message = string.Join("；", errors);
-            context.Result = new BadRequestObjectResult(StatusResponseResult.BadRequest(message));
+            context.Result = new ObjectResult(StatusResponseResult.BadRequest(message));
         }
     }
 }
@@ -38,7 +38,7 @@ public static class ModelStateExtensions
                 .Where(m => !string.IsNullOrEmpty(m));
 
             var message = string.Join("；", errors);
-            return controller.BadRequest(StatusResponseResult.BadRequest(message));
+            return controller.Ok(StatusResponseResult.BadRequest(message));
         }
         return null!;
     }

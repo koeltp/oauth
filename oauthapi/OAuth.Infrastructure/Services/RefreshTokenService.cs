@@ -14,7 +14,7 @@ public class RefreshTokenService : IRefreshTokenService
         _dbContext = dbContext;
     }
 
-    public async Task<RefreshToken> CreateAsync(Guid userId, Guid clientId, string scope)
+    public async Task<RefreshToken> CreateAsync(Guid userId, Guid? clientId = null, string scope = "")
     {
         var token = new RefreshToken
         {
@@ -49,44 +49,6 @@ public class RefreshTokenService : IRefreshTokenService
             refreshToken.Revoked = true;
             await _dbContext.SaveChangesAsync();
         }
-    }
-
-    public async Task RevokeByUserIdAsync(Guid userId)
-    {
-        var tokens = await _dbContext.RefreshTokens
-            .Where(t => t.UserId == userId)
-            .ToListAsync();
-
-        foreach (var token in tokens)
-        {
-            token.Revoked = true;
-        }
-
-        await _dbContext.SaveChangesAsync();
-    }
-
-    public async Task RevokeByClientIdAsync(Guid clientId)
-    {
-        var tokens = await _dbContext.RefreshTokens
-            .Where(t => t.ClientId == clientId)
-            .ToListAsync();
-
-        foreach (var token in tokens)
-        {
-            token.Revoked = true;
-        }
-
-        await _dbContext.SaveChangesAsync();
-    }
-
-    public async Task<bool> IsValidAsync(string token)
-    {
-        var refreshToken = await _dbContext.RefreshTokens
-            .FirstOrDefaultAsync(t => t.Token == token);
-
-        return refreshToken != null && 
-               !refreshToken.Revoked && 
-               refreshToken.ExpiresAt > DateTime.UtcNow;
     }
 
     private string GenerateToken()

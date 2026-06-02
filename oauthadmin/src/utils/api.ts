@@ -1,13 +1,10 @@
 import { createHttp } from './http'
 import { useAdminStore } from '@/stores/admin'
 import router from '@/router'
+import axios from 'axios'
 
 export const adminRefreshTokenApi = (refreshToken: string) => {
-  return fetch('/api/1.0/admin/refresh-token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken })
-  }).then(res => res.json())
+  return axios.post('/api/1.0/admin/refresh', { refreshToken })
 }
 
 export const api = createHttp({

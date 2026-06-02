@@ -23,10 +23,10 @@ public class AdminClientController : ControllerBase
 
     [HttpPost("clients")]
     [Authorize(Policy = AuthPolicies.AdminOnly)]
-    public async Task<PagerResponseResult<ClientDto>> GetClients([FromBody] SearchPager<ClientSearchDto> query)
+    public async Task<ResponseResult<PagerResponse<ClientDto>>> GetClients([FromBody] SearchPager<ClientSearchDto> query)
     {
         var result = await _clientService.GetListAsync(query);
-        return new PagerResponseResult<ClientDto>(result.Items, query.PageIndex,query.PageSize, result.TotalCount);
+        return new ResponseResult<PagerResponse<ClientDto>>(result);
     }
 
     [HttpPut("clients/{id}/approve")]

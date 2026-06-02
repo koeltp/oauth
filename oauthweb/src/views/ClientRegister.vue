@@ -28,6 +28,11 @@
             />
           </el-form-item>
 
+          <el-form-item label="应用 Logo" prop="logo">
+            <el-input v-model="form.logo" placeholder="输入 Logo 图片地址（URL）" />
+            <div class="form-tip">建议 256x256 像素的方形图片，将显示在授权页面和应用列表中</div>
+          </el-form-item>
+
           <el-form-item label="回调地址" prop="redirectUris">
             <el-input
               v-model="form.redirectUris"
@@ -76,6 +81,7 @@ const loading = ref(false)
 const form = reactive({
   name: '',
   description: '',
+  logo: '',
   redirectUris: '',
   scopes: ['openid'] as string[]
 })
@@ -130,6 +136,7 @@ onMounted(async () => {
       if (res) {
         form.name = res.name || ''
         form.description = res.description || ''
+        form.logo = res.logo || ''
         form.redirectUris = res.redirectUris || ''
         form.scopes = (res.allowedScopes || '').split(' ').filter(Boolean)
       }
@@ -153,6 +160,7 @@ const handleSubmit = async () => {
       const payload = {
         name: form.name,
         description: form.description || null,
+        logo: form.logo || null,
         redirectUris: form.redirectUris,
         allowedScopes: form.scopes.join(' ')
       }

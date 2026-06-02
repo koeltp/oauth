@@ -25,12 +25,18 @@ public class AdminUserController : ControllerBase
 
     [HttpPost("users")]
     [Authorize(Policy = AuthPolicies.AdminOnly)]
-    public async Task<PagerResponseResult<UserDto>> GetUsers([FromBody] SearchPager<string?> query)
+    public async Task<ResponseResult<PagerResponse<UserDto>>> GetUsers([FromBody] SearchPager<string?> query)
     {
         var users = await _userQueryService.GetUsersAsync(query);
         var total = await _userQueryService.GetTotalUsersCountAsync();
 
-        return new PagerResponseResult<UserDto>(users.Select(u => u.ToDto()), query.PageIndex, query.PageSize, total);
+        return new ResponseResult<PagerResponse<UserDto>>(new PagerResponse<UserDto>
+        {
+            Items = users.Select(u => u.ToDto()),
+            TotalCount = total,
+            PageIndex = query.PageIndex,
+            PageSize = query.PageSize
+        });
     }
 
     [HttpPut("users/{id}/status")]

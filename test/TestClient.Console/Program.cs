@@ -1,9 +1,9 @@
 using System.Net.Http.Headers;
 using System.Text.Json;
 
-var oauthBaseUrl = "https://sso.taipi.top";
-var clientId = "your-client-id";
-var clientSecret = "your-client-secret";
+var oauthBaseUrl = "http://localhost:5000";
+var clientId = "test-client-id";
+var clientSecret = "test-client-secret";
 
 using var httpClient = new HttpClient();
 httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));

@@ -48,20 +48,6 @@ public class AdminRefreshTokenService : IAdminRefreshTokenService
         }
     }
 
-    public async Task RevokeByAdminIdAsync(Guid adminId)
-    {
-        var tokens = await _dbContext.AdminRefreshTokens
-            .Where(t => t.AdminId == adminId)
-            .ToListAsync();
-
-        foreach (var token in tokens)
-        {
-            token.Revoked = true;
-        }
-
-        await _dbContext.SaveChangesAsync();
-    }
-
     public async Task<bool> IsValidAsync(string token)
     {
         var refreshToken = await _dbContext.AdminRefreshTokens

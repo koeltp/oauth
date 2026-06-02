@@ -11,8 +11,11 @@ public static class DbSeeder
         await context.Database.EnsureCreatedAsync();
 
         await SeedAdminsAsync(context);
+        await context.SaveChangesAsync();
         await SeedUsersAsync(context);
+        await context.SaveChangesAsync();
         await SeedClientsAsync(context);
+        await context.SaveChangesAsync();
         await SeedAuthorizationsAsync(context);
 
         await context.SaveChangesAsync();
@@ -79,7 +82,7 @@ public static class DbSeeder
             new()
             {
                 Username = "lisi",
-                Email = "lisi@taipi.top",
+                Email = "koeltp@163.com",
                 Phone = "13800138002",
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword("123456"),
                 EmailVerified = true,
@@ -111,65 +114,76 @@ public static class DbSeeder
     {
         if (!await context.Clients.AnyAsync())
         {
-            var users = await context.Users.OrderByDescending(u => u.CreatedAt).Take(2).ToListAsync();
-
-            var clientSecretA = OpenIddictIdentifier.GenerateClientSecret();
-            var clientSecretB = OpenIddictIdentifier.GenerateClientSecret();
-            var clientSecretC = OpenIddictIdentifier.GenerateClientSecret();
-            var clientSecretD = OpenIddictIdentifier.GenerateClientSecret();
+            var adminUser = await context.Users.FirstOrDefaultAsync(u => u.Username == "admin");
+            var zhangsan = await context.Users.FirstOrDefaultAsync(u => u.Username == "zhangsan");
 
             var clients = new List<Client>
             {
                 new()
                 {
-                    ClientId = OpenIddictIdentifier.GenerateClientId(),
-                    ClientSecretHash = BCrypt.Net.BCrypt.HashPassword(clientSecretA),
-                    ClientSecretEncrypted = "seed-only",
+                    ClientId = "test-client-id",
+                    ClientSecretHash = BCrypt.Net.BCrypt.HashPassword("test-client-secret"),
+                    ClientSecretEncrypted = string.Empty,
                     Name = "测试应用 A",
-                    Description = "这是一个用于测试的 OAuth 应用",
-                    Logo = null,
-                    RedirectUris = "https://app-a.taipi.top/callback",
+                    Description = "用于 TestClient.Web 的标准登录测试",
+                    Logo = "https://sso.taipi.top/assets/logo-DB0P-MWr.png",
+                    RedirectUris = "http://localhost:5002/callback",
                     AllowedScopes = "openid profile email",
                     Status = ClientStatus.Approved,
-                    UserId = users.Count > 0 ? users[0].Id : null,
+                    UserId = adminUser?.Id,
                     CreatedAt = DateTime.UtcNow
                 },
                 new()
                 {
-                    ClientId = OpenIddictIdentifier.GenerateClientId(),
-                    ClientSecretHash = BCrypt.Net.BCrypt.HashPassword(clientSecretB),
-                    ClientSecretEncrypted = "seed-only",
+                    ClientId = "test-client-b",
+                    ClientSecretHash = BCrypt.Net.BCrypt.HashPassword("test-client-secret-b"),
+                    ClientSecretEncrypted = string.Empty,
                     Name = "测试应用 B",
-                    Description = "另一个测试应用，用于多场景验证",
-                    Logo = null,
-                    RedirectUris = "https://app-b.taipi.top/callback",
+                    Description = "用于跨客户端测试的第二个应用",
+                    Logo = "https://sso.taipi.top/assets/logo-DB0P-MWr.png",
+                    RedirectUris = "http://localhost:5002/callback",
                     AllowedScopes = "openid profile email phone",
                     Status = ClientStatus.Approved,
-                    UserId = users.Count > 0 ? users[0].Id : null,
+                    UserId = adminUser?.Id,
+                    CreatedAt = DateTime.UtcNow
+                },
+                new()
+                {
+                    ClientId = "test-public-client",
+                    ClientSecretHash = string.Empty,
+                    ClientSecretEncrypted = string.Empty,
+                    Name = "公开测试客户端",
+                    Description = "用于 TestClient.Spa 的纯前端 PKCE 登录测试",
+                    Logo = "https://sso.taipi.top/assets/logo-DB0P-MWr.png",
+                    RedirectUris = "http://localhost:5003/callback",
+                    AllowedScopes = "openid profile email",
+                    IsPublic = true,
+                    Status = ClientStatus.Approved,
+                    UserId = adminUser?.Id,
                     CreatedAt = DateTime.UtcNow
                 },
                 new()
                 {
                     ClientId = OpenIddictIdentifier.GenerateClientId(),
-                    ClientSecretHash = BCrypt.Net.BCrypt.HashPassword(clientSecretC),
-                    ClientSecretEncrypted = "seed-only",
+                    ClientSecretHash = BCrypt.Net.BCrypt.HashPassword(OpenIddictIdentifier.GenerateClientSecret()),
+                    ClientSecretEncrypted = string.Empty,
                     Name = "待审核应用",
                     Description = "等待管理员审核的测试应用",
-                    Logo = null,
+                    Logo = "https://sso.taipi.top/assets/logo-DB0P-MWr.png",
                     RedirectUris = "https://pending.taipi.top/callback",
                     AllowedScopes = "openid profile",
                     Status = ClientStatus.Pending,
-                    UserId = users.Count > 1 ? users[1].Id : null,
+                    UserId = zhangsan?.Id,
                     CreatedAt = DateTime.UtcNow
                 },
                 new()
                 {
                     ClientId = OpenIddictIdentifier.GenerateClientId(),
-                    ClientSecretHash = BCrypt.Net.BCrypt.HashPassword(clientSecretD),
-                    ClientSecretEncrypted = "seed-only",
+                    ClientSecretHash = BCrypt.Net.BCrypt.HashPassword(OpenIddictIdentifier.GenerateClientSecret()),
+                    ClientSecretEncrypted = string.Empty,
                     Name = "被拒绝的应用",
                     Description = "因不符合规范被拒绝的示例应用",
-                    Logo = null,
+                    Logo = "https://sso.taipi.top/assets/logo-DB0P-MWr.png",
                     RedirectUris = "https://rejected.taipi.top/callback",
                     AllowedScopes = "openid profile",
                     Status = ClientStatus.Rejected,
@@ -185,36 +199,45 @@ public static class DbSeeder
 
     private static async Task SeedAuthorizationsAsync(ApplicationDbContext context)
     {
-        var users = await context.Users.ToListAsync();
         var clients = await context.Clients.Where(c => c.Status == ClientStatus.Approved).ToListAsync();
+        if (clients.Count < 2) return;
 
-        if (users.Count > 0 && clients.Count > 0)
+        var adminUser = await context.Users.FirstOrDefaultAsync(u => u.Username == "admin");
+        var zhangsan = await context.Users.FirstOrDefaultAsync(u => u.Username == "zhangsan");
+
+        var authorizations = new List<Authorization>();
+        if (adminUser != null)
         {
-            var authorizations = new List<Authorization>
-            {
+            authorizations.AddRange([
                 new()
                 {
-                    UserId = users[0].Id,
+                    UserId = adminUser.Id,
                     ClientId = clients[0].Id,
                     Scope = "openid profile email",
                     CreatedAt = DateTime.UtcNow
                 },
                 new()
                 {
-                    UserId = users[0].Id,
+                    UserId = adminUser.Id,
                     ClientId = clients[1].Id,
                     Scope = "openid profile",
                     CreatedAt = DateTime.UtcNow
-                },
-                new()
-                {
-                    UserId = users[1].Id,
-                    ClientId = clients[0].Id,
-                    Scope = "openid profile email phone",
-                    CreatedAt = DateTime.UtcNow
                 }
-            };
+            ]);
+        }
+        if (zhangsan != null)
+        {
+            authorizations.Add(new()
+            {
+                UserId = zhangsan.Id,
+                ClientId = clients[0].Id,
+                Scope = "openid profile email phone",
+                CreatedAt = DateTime.UtcNow
+            });
+        }
 
+        if (authorizations.Count > 0)
+        {
             await context.Authorizations.AddRangeAsync(authorizations);
         }
     }

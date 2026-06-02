@@ -1,13 +1,24 @@
 <template>
   <div class="home-container">
+    <nav class="navbar">
+      <div class="navbar-inner">
+        <router-link to="/" class="navbar-brand">
+          <img src="@/assets/logo.png" alt="TP OAuth" class="navbar-logo" />
+          <span class="navbar-title">TP OAuth</span>
+        </router-link>
+        <div class="navbar-right">
+          <router-link to="/" class="nav-link">首页</router-link>
+          <router-link to="/docs" class="nav-link">文档</router-link>
+          <router-link to="/login" class="nav-link">登录</router-link>
+          <router-link to="/register" class="nav-link">注册</router-link>
+        </div>
+      </div>
+    </nav>
+
     <div class="hero-section">
       <div class="hero-content">
-        <h1 class="hero-title">OAuth 授权服务</h1>
+        <h1 class="hero-title">TP OAuth 授权服务</h1>
         <p class="hero-subtitle">安全、可靠的统一身份认证平台</p>
-        <div class="hero-actions">
-          <el-button type="primary" size="large" @click="goToLogin">登录</el-button>
-          <el-button size="large" @click="goToRegister">注册账号</el-button>
-        </div>
       </div>
       <div class="hero-features">
         <div class="feature-item">
@@ -108,11 +119,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
 import { Lock, Connection, Monitor , User, Setting, CircleCheck , Odometer   } from '@element-plus/icons-vue'
 import api from '@/utils/api'
-
-const router = useRouter()
 
 const stats = ref({
   totalUsers: 0,
@@ -140,14 +148,6 @@ onMounted(async () => {
     }
   }
 })
-
-const goToLogin = () => {
-  router.push('/login')
-}
-
-const goToRegister = () => {
-  router.push('/register')
-}
 </script>
 
 <style scoped>
@@ -156,73 +156,174 @@ const goToRegister = () => {
   background: white;
 }
 
-.hero-section {
-  padding: 80px 20px;
-  text-align: center;
+.navbar {
+  display: flex;
+  align-items: center;
+  height: 60px;
+  border-bottom: 1px solid #f0f0f0;
+  position: sticky;
+  top: 0;
+  background: white;
+  z-index: 100;
+}
+
+.navbar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+
+.navbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+}
+
+.navbar-logo {
+  height: 32px;
+}
+
+.navbar-title {
+  font-size: 18px;
+  font-weight: 600;
   color: #333;
 }
 
+.navbar-right {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.nav-link {
+  font-size: 15px;
+  color: #666;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.nav-link:hover {
+  color: #409eff;
+}
+
+.nav-link.router-link-active {
+  color: #409eff;
+  font-weight: 500;
+}
+
+.hero-section {
+  padding: 100px 20px 80px;
+  text-align: center;
+  background: linear-gradient(135deg, #f0f5ff 0%, #e8f0fe 50%, #f5f0ff 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+.hero-section::before {
+  content: '';
+  position: absolute;
+  top: -200px;
+  right: -200px;
+  width: 500px;
+  height: 500px;
+  background: radial-gradient(circle, rgba(64,158,255,0.08) 0%, transparent 70%);
+  border-radius: 50%;
+}
+
+.hero-section::after {
+  content: '';
+  position: absolute;
+  bottom: -150px;
+  left: -150px;
+  width: 400px;
+  height: 400px;
+  background: radial-gradient(circle, rgba(103,194,58,0.06) 0%, transparent 70%);
+  border-radius: 50%;
+}
+
 .hero-content {
-  max-width: 600px;
+  max-width: 800px;
   margin: 0 auto 60px;
+  position: relative;
+  z-index: 1;
 }
 
 .hero-title {
-  font-size: 48px;
-  font-weight: 700;
-  margin-bottom: 20px;
-  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+  font-size: 52px;
+  font-weight: 800;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, #2b5fd9 0%, #7c3aed 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -1px;
 }
 
 .hero-subtitle {
   font-size: 20px;
-  opacity: 0.9;
+  color: #666;
   margin-bottom: 40px;
-}
-
-.hero-actions {
-  display: flex;
-  gap: 20px;
-  justify-content: center;
-}
-
-.hero-actions .el-button {
-  min-width: 120px;
+  font-weight: 400;
 }
 
 .hero-features {
   display: flex;
-  gap: 20px;
-  justify-content: space-between;
+  gap: 24px;
+  justify-content: center;
   flex-wrap: nowrap;
-  max-width: 1000px;
+  max-width: 1200px;
   margin: 0 auto;
+  position: relative;
+  z-index: 1;
 }
 
 .feature-item {
   flex: 1;
-  min-width: 280px;
-  max-width: 340px;
-  padding: 30px;
-  background: #f5f7fa;
-  border-radius: 12px;
+  padding: 36px 28px;
+  background: white;
+  border-radius: 16px;
+  border: 1px solid #eef2f6;
+  transition: all 0.3s ease;
+}
+
+.feature-item:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.08);
+  border-color: transparent;
 }
 
 .feature-icon {
   font-size: 40px;
-  margin-bottom: 15px;
+  margin-bottom: 16px;
+  color: #409eff;
+}
+
+.feature-item h3 {
+  font-size: 18px;
+  margin-bottom: 8px;
+  color: #1a1a2e;
+}
+
+.feature-item p {
+  font-size: 14px;
+  color: #888;
+  line-height: 1.6;
 }
 
 .stats-section {
-  padding: 40px 20px;
-  background: #fafafa;
+  padding: 60px 20px;
 }
 
 .stats-container {
   display: flex;
-  gap: 20px;
-  justify-content: space-between;
-  max-width: 1000px;
+  gap: 24px;
+  justify-content: center;
+  max-width: 1200px;
   margin: 0 auto;
 }
 
@@ -230,12 +331,12 @@ const goToRegister = () => {
   flex: 1;
   display: flex;
   align-items: center;
-  gap: 15px;
-  padding: 25px;
+  gap: 16px;
+  padding: 28px;
   background: white;
-  border-radius: 12px;
-  border: 1px solid #e4e7ed;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border-radius: 16px;
+  border: 1px solid #eef2f6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
 }
 
 .stat-icon {
@@ -250,26 +351,16 @@ const goToRegister = () => {
 .stat-value {
   font-size: 28px;
   font-weight: 700;
-  color: #333;
+  color: #1a1a2e;
 }
 
 .stat-label {
   font-size: 14px;
-  color: #666;
-}
-
-.feature-item h3 {
-  font-size: 18px;
-  margin-bottom: 10px;
-}
-
-.feature-item p {
-  font-size: 14px;
-  opacity: 0.8;
+  color: #888;
 }
 
 .info-section {
-  max-width: 1000px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 60px 0;
 }
@@ -322,5 +413,7 @@ const goToRegister = () => {
   padding: 40px 20px;
   color: #666;
   font-size: 14px;
+  max-width: 1200px;
+  margin: 0 auto;
 }
 </style>

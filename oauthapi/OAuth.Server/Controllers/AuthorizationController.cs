@@ -3,7 +3,6 @@ using Microsoft.AspNetCore.Mvc;
 using OpenIddict.Server.AspNetCore;
 using OpenIddict.Abstractions;
 using OAuth.Application.Interfaces;
-using OAuth.Contracts.Authorization;
 using OAuth.Contracts.Common;
 using System.Security.Claims;
 using Taipi.Core.RQRS;
@@ -25,35 +24,6 @@ public class AuthorizationController : Controller
         _authorizationService = authorizationService;
         _clientService = clientService;
         _currentUserService = currentUserService;
-    }
-
-    [HttpGet("authorize")]
-    [Authorize(AuthenticationSchemes = OpenIddictServerAspNetCoreDefaults.AuthenticationScheme)]
-    public async Task<ResponseResult<AuthorizeResponse>> Authorize()
-    {
-        var clientId = Request.Query["client_id"].ToString();
-        var scope = Request.Query["scope"].ToString();
-
-        if (string.IsNullOrEmpty(clientId))
-        {
-            return ResponseResult<AuthorizeResponse>.BadRequest("缺少客户端标识");
-        }
-
-        var client = await _clientService.GetByClientIdAsync(clientId);
-        if (client == null)
-        {
-            return ResponseResult<AuthorizeResponse>.BadRequest("无效的客户端");
-        }
-
-        var userIdValue = _currentUserService.GetUserId()?.ToString();
-
-        return new ResponseResult<AuthorizeResponse>(new AuthorizeResponse
-        {
-            ClientId = client.ClientId,
-            ClientName = client.Name,
-            Scopes = scope,
-            UserId = userIdValue
-        });
     }
 
     [HttpPost("authorize/accept")]

@@ -9,7 +9,14 @@
           </div>
         </template>
         <el-table :data="authorizedApps" v-loading="loading">
-          <el-table-column prop="name" label="应用名称" />
+          <el-table-column label="Logo" width="55">
+            <template #default="{ row }">
+              <el-avatar :size="32" :src="row.logo" shape="square">
+                {{ row.clientName?.charAt(0)?.toUpperCase() || 'A' }}
+              </el-avatar>
+            </template>
+          </el-table-column>
+          <el-table-column prop="clientName" label="应用名称" />
           <el-table-column prop="scope" label="授权范围" />
           <el-table-column prop="createdAt" label="授权时间" />
           <el-table-column label="操作">
