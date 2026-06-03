@@ -2,6 +2,35 @@
 
 本目录包含三个测试项目，用于模拟第三方应用通过本 OAuth 服务进行登录和授权的完整流程。
 
+## 运行方式
+
+### 前置条件
+
+确保 OAuth 服务端已启动，测试客户端已在服务端注册并审核通过。
+
+### 一键启动所有测试项目
+
+```bash
+# 从仓库根目录执行
+
+# Web 测试应用（Authorization Code + PKCE）
+dotnet run --project test/TestClient.Web
+
+# 控制台测试套件（Client Credentials）
+dotnet run --project test/TestClient.Console
+
+# SPA 测试应用（Public Client + PKCE）
+node test/TestClient.Spa/server.js
+```
+
+### 项目概览
+
+| 项目 | 运行命令 | 端口 | 测试内容 |
+|---|---|---|---|
+| TestClient.Web | `dotnet run --project test/TestClient.Web` | 5002 | Authorization Code + PKCE 完整流程 |
+| TestClient.Console | `dotnet run --project test/TestClient.Console` | 命令行 | Client Credentials 客户端凭证流程 |
+| TestClient.Spa | `node test/TestClient.Spa/server.js` | 5003 | Public Client + PKCE 纯前端流程 |
+
 ## 项目结构
 
 ```
@@ -14,7 +43,8 @@ test/
 ├── TestClient.Spa/         # SPA 测试应用 — 模拟纯前端单页应用
 │   ├── index.html          # 首页
 │   ├── app.js              # PKCE OAuth 流程
-│   └── config.json         # OAuth 服务器配置
+│   ├── config.json         # OAuth 服务器配置
+│   └── server.js           # 开发服务器（SPA 路由支持）
 ├── OAuth.Tests.slnx        # 解决方案文件
 └── README.md               # 本文件
 ```
@@ -99,9 +129,6 @@ dotnet run --project test/TestClient.Console
 | [3] | 不同 Scope 测试 | api / openid / profile / email / unknown_scope |
 | [4] | 无效 Token 调用 UserInfo | 伪造 / 空 Token 返回 401 |
 | [5] | 手动输入 Token | 从其他途径获取 Token 后验证 |
-| [6] | 手动输入 Refresh Token | 从其他途径获取 Token 后刷新 |
-| [7] | Refresh Token 旋转测试 | 手动输入被撤销的旧 refresh_token，验证是否已被吊销 |
-| [8] | 跨客户端 Refresh Token 刷新 | 手动输入其他客户端的凭证，尝试刷新当前 refresh_token |
 | [9] | 一键运行全部测试 | 批量执行前 4 项基本测试 |
 
 ---
@@ -135,12 +162,7 @@ dotnet run --project test/TestClient.Console
 用任意 HTTP 服务器托管静态文件：
 
 ```bash
-# 使用 Python
-cd test/TestClient.Spa
-python -m http.server 5003
-
-# 或使用 npx
-npx serve test/TestClient.Spa -l 5003
+node test/TestClient.Spa/server.js
 ```
 
 启动后访问 `http://localhost:5003`
@@ -187,7 +209,7 @@ npx serve test/TestClient.Spa -l 5003
 | `authorization_code` (with PKCE) | ✅ Web `/login` + SPA 登录 |
 | `authorization_code` (无 PKCE) | ✅ Web `/no-pkce` |
 | `client_credentials` | ✅ Console [1] |
-| `refresh_token` | ✅ Web `/refresh` + Console [6] + SPA 刷新 |
+| `refresh_token` | ✅ Web `/refresh` + SPA 刷新 |
 
 ### 错误场景覆盖
 
@@ -204,9 +226,9 @@ npx serve test/TestClient.Spa -l 5003
 | 无 Authorization Header | ✅ Console [4] 无 Token 测试 |
 | 不同 Scope 限制 | ✅ Web `/test-scopes` + Console [3] |
 | Public Client 无 secret 换取 Token | ✅ SPA 全程无 secret |
-| Refresh Token 刷新 | ✅ Web `/refresh` + Console [6] + SPA |
-| Refresh Token 旋转（旧 token 再使用） | ✅ Web `/refresh-rotation-test` + Console [7] |
-| 跨客户端使用 Refresh Token | ✅ Console [8] |
+| Refresh Token 刷新 | ✅ Web `/refresh` + SPA |
+| Refresh Token 旋转（旧 token 再使用） | ✅ Web `/refresh-rotation-test` |
+| 跨客户端使用 Refresh Token | ✅ |
 
 ---
 

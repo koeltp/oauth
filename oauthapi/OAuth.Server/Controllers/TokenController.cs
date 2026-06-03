@@ -1,9 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using OpenIddict.Server.AspNetCore;
-using OpenIddict.Abstractions;
 using OAuth.Application.Interfaces;
-using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -12,13 +9,20 @@ namespace OAuth.Server.Controllers;
 [Route("connect")]
 public class TokenController : Controller
 {
+    private readonly IJwtService _jwtService;
     private readonly IRefreshTokenService _refreshTokenService;
     private readonly IClientService _clientService;
     private readonly IUserService _userService;
     private readonly IOAuthAuthorizationService _authorizationService;
 
-    public TokenController(IRefreshTokenService refreshTokenService, IClientService clientService, IUserService userService, IOAuthAuthorizationService authorizationService)
+    public TokenController(
+        IJwtService jwtService,
+        IRefreshTokenService refreshTokenService,
+        IClientService clientService,
+        IUserService userService,
+        IOAuthAuthorizationService authorizationService)
     {
+        _jwtService = jwtService;
         _refreshTokenService = refreshTokenService;
         _clientService = clientService;
         _userService = userService;
@@ -30,7 +34,7 @@ public class TokenController : Controller
     public async Task<IActionResult> Token()
     {
         var grantType = Request.Form["grant_type"].ToString();
-        
+
         if (string.Equals(grantType, "client_credentials", StringComparison.OrdinalIgnoreCase))
         {
             return await HandleClientCredentialsAsync();
@@ -65,15 +69,22 @@ public class TokenController : Controller
             return BadRequest(new { error = "invalid_client" });
         }
 
-        var identity = new ClaimsIdentity(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
-        identity.AddClaim(OpenIddictConstants.Claims.Subject, client.Id.ToString());
-        identity.AddClaim(OpenIddictConstants.Claims.ClientId, client.ClientId);
+        var requestedScope = Request.Form["scope"].ToString();
+        var validatedScope = ValidateRequestedScopes(requestedScope, client.AllowedScopes);
+        if (validatedScope == null)
+        {
+            return BadRequest(new { error = "invalid_scope", error_description = "请求的 scope 不在客户端允许范围内" });
+        }
 
-        var principal = new ClaimsPrincipal(identity);
-        var scopes = Request.Form["scope"].ToString()?.Split(' ') ?? Array.Empty<string>();
-        principal.SetScopes(scopes);
+        var accessToken = _jwtService.GenerateClientToken(client.Id, client.ClientId);
 
-        return SignIn(principal, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+        return Ok(new
+        {
+            access_token = accessToken,
+            token_type = "Bearer",
+            expires_in = _jwtService.GetExpirationSeconds(),
+            scope = validatedScope
+        });
     }
 
     private async Task<IActionResult> HandleAuthorizationCodeAsync()
@@ -150,9 +161,13 @@ public class TokenController : Controller
             }
         }
 
-        await _authorizationService.MarkCodeAsUsedAsync(code);
+        var validatedScope = ValidateRequestedScopes(authorization.Scope, client.AllowedScopes);
+        if (validatedScope == null)
+        {
+            return BadRequest(new { error = "invalid_scope", error_description = "请求的 scope 不在客户端允许范围内" });
+        }
 
-        await _refreshTokenService.CreateAsync(authorization.UserId, client.Id, authorization.Scope);
+        await _authorizationService.MarkCodeAsUsedAsync(code);
 
         var user = await _userService.GetByIdAsync(authorization.UserId);
         if (user == null)
@@ -160,19 +175,17 @@ public class TokenController : Controller
             return BadRequest(new { error = "invalid_grant" });
         }
 
-        var identity = new ClaimsIdentity(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
-        identity.AddClaim(OpenIddictConstants.Claims.Subject, user.Id.ToString());
-        identity.AddClaim(OpenIddictConstants.Claims.Email, user.Email);
-        if (!string.IsNullOrEmpty(user.Username))
+        var accessToken = _jwtService.GenerateUserToken(user);
+        var refreshToken = await _refreshTokenService.CreateAsync(user.Id, client.Id, validatedScope);
+
+        return Ok(new
         {
-            identity.AddClaim(OpenIddictConstants.Claims.Name, user.Username);
-        }
-
-        var principal = new ClaimsPrincipal(identity);
-        var scopes = authorization.Scope.Split(' ') ?? Array.Empty<string>();
-        principal.SetScopes(scopes);
-
-        return SignIn(principal, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+            access_token = accessToken,
+            token_type = "Bearer",
+            expires_in = _jwtService.GetExpirationSeconds(),
+            refresh_token = refreshToken.Token,
+            scope = validatedScope
+        });
     }
 
     private async Task<IActionResult> HandleRefreshTokenAsync()
@@ -216,19 +229,16 @@ public class TokenController : Controller
             return BadRequest(new { error = "invalid_grant" });
         }
 
-        var identity = new ClaimsIdentity(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
-        identity.AddClaim(OpenIddictConstants.Claims.Subject, user.Id.ToString());
-        identity.AddClaim(OpenIddictConstants.Claims.Email, user.Email);
-        if (!string.IsNullOrEmpty(user.Username))
+        var accessToken = _jwtService.GenerateUserToken(user);
+
+        return Ok(new
         {
-            identity.AddClaim(OpenIddictConstants.Claims.Name, user.Username);
-        }
-
-        var principal = new ClaimsPrincipal(identity);
-        var scopes = token.Scope.Split(' ') ?? Array.Empty<string>();
-        principal.SetScopes(scopes);
-
-        return SignIn(principal, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+            access_token = accessToken,
+            token_type = "Bearer",
+            expires_in = _jwtService.GetExpirationSeconds(),
+            refresh_token = newRefreshToken.Token,
+            scope = token.Scope
+        });
     }
 
     private static string ComputeS256CodeChallenge(string codeVerifier)
@@ -239,5 +249,29 @@ public class TokenController : Controller
             .TrimEnd('=')
             .Replace('+', '-')
             .Replace('/', '_');
+    }
+
+    private static string? ValidateRequestedScopes(string? requestedScope, string allowedScopes)
+    {
+        if (string.IsNullOrWhiteSpace(requestedScope))
+        {
+            return string.Empty;
+        }
+
+        var allowed = allowedScopes
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToHashSet();
+
+        var requested = requestedScope
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        var validScopes = requested.Where(s => allowed.Contains(s)).ToArray();
+
+        if (validScopes.Length != requested.Length)
+        {
+            return null;
+        }
+
+        return string.Join(" ", validScopes);
     }
 }

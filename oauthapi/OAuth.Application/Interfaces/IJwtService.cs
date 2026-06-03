@@ -5,8 +5,10 @@ namespace OAuth.Application.Interfaces;
 public interface IJwtService
 {
     string GenerateUserToken(User user, string? role = null);
-    
+
     string GenerateAdminToken(Admin admin);
-    
+
+    string GenerateClientToken(Guid clientDbId, string clientId);
+
     int GetExpirationSeconds();
 }

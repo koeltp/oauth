@@ -45,11 +45,11 @@
         </div>
 
         <div class="register-link">
-          还没有账号？ <router-link to="/register">立即注册</router-link>
+          还没有账号？ <router-link :to="{ path: '/register', query: $route.query.redirect ? { redirect: $route.query.redirect } : {} }">立即注册</router-link>
         </div>
 
         <div class="forgot-link">
-          <router-link to="/forgot-password">忘记密码？</router-link>
+          <router-link :to="{ path: '/forgot-password', query: $route.query.redirect ? { redirect: $route.query.redirect } : {} }">忘记密码？</router-link>
         </div>
 
         <div class="admin-link">

@@ -10,6 +10,7 @@ using OAuth.Infrastructure.Extensions;
 using OAuth.Infrastructure.Options;
 using OAuth.Server.Middlewares;
 using OAuth.Server.Services;
+using OpenIddict.Abstractions;
 using OpenIddict.Server;
 using StackExchange.Redis;
 using System.Security.Claims;
@@ -65,10 +66,41 @@ builder.Services.AddOpenIddict()
                .SetLogoutEndpointUris("/connect/logout")
                .SetIntrospectionEndpointUris("/connect/introspect");
 
-        options.RegisterScopes("openid", "profile", "email", "phone");
+        options.RegisterScopes("openid", "profile", "email", "phone", "api");
 
-        // Authorization Code Flow with PKCE
-        options.AllowAuthorizationCodeFlow();
+        // 注册 OAuth 2.0 流程（满足 OpenIddict 启动验证）
+        options.AllowAuthorizationCodeFlow()
+               .AllowClientCredentialsFlow()
+               .AllowRefreshTokenFlow();
+
+        // ASP.NET Core integration
+        options.UseAspNetCore()
+               .EnableAuthorizationEndpointPassthrough()
+               .EnableTokenEndpointPassthrough()
+               .EnableUserinfoEndpointPassthrough();
+
+        // 跳过 OpenIddict 对 Token 端点的处理，由自定义 TokenController 接管
+        options.AddEventHandler<OpenIddict.Server.OpenIddictServerEvents.ValidateTokenRequestContext>(builder =>
+        {
+            builder.UseInlineHandler(context =>
+            {
+                context.SkipRequest();
+                return ValueTask.CompletedTask;
+            });
+            // 设置最低优先级，确保在 OpenIddict 内置验证处理器之前运行
+            builder.SetOrder(int.MinValue);
+        });
+
+        // 跳过 OpenIddict 对 UserInfo 端点的处理，由自定义 UserInfoController 接管
+        options.AddEventHandler<OpenIddict.Server.OpenIddictServerEvents.ValidateUserinfoRequestContext>(builder =>
+        {
+            builder.UseInlineHandler(context =>
+            {
+                context.SkipRequest();
+                return ValueTask.CompletedTask;
+            });
+            builder.SetOrder(int.MinValue);
+        });
 
         // Signing and encryption
         options.AddEphemeralEncryptionKey()
@@ -76,14 +108,6 @@ builder.Services.AddOpenIddict()
 
         // Accepted issuer
         options.SetIssuer(openIddictIssuer);
-
-        options.AddEventHandler<OpenIddictServerEvents.ProcessSignInContext>(builder =>
-        {
-            builder.UseInlineHandler(context =>
-            {
-                return default;
-            });
-        });
     })
 
     // Register the OpenIddict validation components.
@@ -115,6 +139,35 @@ builder.Services.AddAuthentication(options =>
         ValidAudience = jwtOptions.Audience,
         IssuerSigningKey = new Microsoft.IdentityModel.Tokens.SymmetricSecurityKey(
             System.Text.Encoding.UTF8.GetBytes(jwtOptions.SecretKey))
+    };
+
+    options.Events = new Microsoft.AspNetCore.Authentication.JwtBearer.JwtBearerEvents
+    {
+        OnChallenge = context =>
+        {
+            context.HandleResponse();
+            context.Response.ContentType = "application/json";
+
+            // OAuth 端点返回标准 OAuth 错误格式 + 真实 401 状态码
+            if (context.Request.Path.StartsWithSegments("/connect"))
+            {
+                context.Response.StatusCode = 401;
+                var json = System.Text.Json.JsonSerializer.Serialize(new
+                {
+                    error = "invalid_token",
+                    error_description = "未登录或登录已过期"
+                });
+                return context.Response.WriteAsync(json);
+            }
+
+            context.Response.StatusCode = 200;
+            var json2 = System.Text.Json.JsonSerializer.Serialize(new
+            {
+                code = 401,
+                message = "未登录或登录已过期"
+            });
+            return context.Response.WriteAsync(json2);
+        }
     };
 });
 
@@ -196,7 +249,8 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-    await DbSeeder.SeedAsync(context);
+    var applicationManager = scope.ServiceProvider.GetRequiredService<IOpenIddictApplicationManager>();
+    await DbSeeder.SeedAsync(context, applicationManager);
     Console.WriteLine("Database seeded successfully!");
 }
 

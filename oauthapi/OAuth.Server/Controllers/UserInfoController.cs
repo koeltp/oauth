@@ -1,6 +1,6 @@
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using OpenIddict.Server.AspNetCore;
 using System.Security.Claims;
 
 namespace OAuth.Server.Controllers;
@@ -9,7 +9,7 @@ namespace OAuth.Server.Controllers;
 public class UserInfoController : Controller
 {
     [HttpGet("userinfo")]
-    [Authorize(AuthenticationSchemes = OpenIddictServerAspNetCoreDefaults.AuthenticationScheme)]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public IActionResult UserInfo()
     {
         var claims = new Dictionary<string, object>

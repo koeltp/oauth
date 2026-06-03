@@ -1,11 +1,12 @@
 using Microsoft.EntityFrameworkCore;
 using OAuth.Domain.Entities;
+using OpenIddict.Abstractions;
 
 namespace OAuth.Infrastructure.Data;
 
 public static class DbSeeder
 {
-    public static async Task SeedAsync(ApplicationDbContext context)
+    public static async Task SeedAsync(ApplicationDbContext context, IOpenIddictApplicationManager applicationManager)
     {
         await context.Database.EnsureDeletedAsync();
         await context.Database.EnsureCreatedAsync();
@@ -16,8 +17,10 @@ public static class DbSeeder
         await context.SaveChangesAsync();
         await SeedClientsAsync(context);
         await context.SaveChangesAsync();
+        await UpdateClientScopesAsync(context);
+        await context.SaveChangesAsync();
+        await SeedOpenIddictApplicationsAsync(applicationManager);
         await SeedAuthorizationsAsync(context);
-
         await context.SaveChangesAsync();
     }
 
@@ -127,8 +130,8 @@ public static class DbSeeder
                     Name = "测试应用 A",
                     Description = "用于 TestClient.Web 的标准登录测试",
                     Logo = "https://sso.taipi.top/assets/logo-DB0P-MWr.png",
-                    RedirectUris = "http://localhost:5002/callback",
-                    AllowedScopes = "openid profile email",
+                    RedirectUris = "http://localhost:5002/callback\nhttp://localhost:5048/callback",
+                    AllowedScopes = "openid profile email api",
                     Status = ClientStatus.Approved,
                     UserId = adminUser?.Id,
                     CreatedAt = DateTime.UtcNow
@@ -141,8 +144,8 @@ public static class DbSeeder
                     Name = "测试应用 B",
                     Description = "用于跨客户端测试的第二个应用",
                     Logo = "https://sso.taipi.top/assets/logo-DB0P-MWr.png",
-                    RedirectUris = "http://localhost:5002/callback",
-                    AllowedScopes = "openid profile email phone",
+                    RedirectUris = "http://localhost:5002/callback\nhttp://localhost:5048/callback",
+                    AllowedScopes = "openid profile email phone api",
                     Status = ClientStatus.Approved,
                     UserId = adminUser?.Id,
                     CreatedAt = DateTime.UtcNow
@@ -194,6 +197,120 @@ public static class DbSeeder
             };
 
             await context.Clients.AddRangeAsync(clients);
+        }
+    }
+
+    private static async Task UpdateClientScopesAsync(ApplicationDbContext context)
+    {
+        // 为已有客户端补充 api scope（用于 Client Credentials 流程）
+        var testClient = await context.Clients.FirstOrDefaultAsync(c => c.ClientId == "test-client-id");
+        if (testClient != null && !testClient.AllowedScopes.Contains("api"))
+        {
+            testClient.AllowedScopes += " api";
+        }
+
+        var testClientB = await context.Clients.FirstOrDefaultAsync(c => c.ClientId == "test-client-b");
+        if (testClientB != null && !testClientB.AllowedScopes.Contains("api"))
+        {
+            testClientB.AllowedScopes += " api";
+        }
+
+        // 为已有客户端补充端口 5048 的回调地址
+        if (testClient != null && !testClient.RedirectUris.Contains("localhost:5048"))
+        {
+            testClient.RedirectUris += "\nhttp://localhost:5048/callback";
+        }
+
+        if (testClientB != null && !testClientB.RedirectUris.Contains("localhost:5048"))
+        {
+            testClientB.RedirectUris += "\nhttp://localhost:5048/callback";
+        }
+    }
+
+    private static async Task SeedOpenIddictApplicationsAsync(IOpenIddictApplicationManager applicationManager)
+    {
+        var testApps = new List<OpenIddictApplicationDescriptor>
+        {
+            new()
+            {
+                ClientId = "test-client-id",
+                ClientSecret = "test-client-secret",
+                DisplayName = "测试应用 A",
+                ClientType = "confidential",
+                ConsentType = "explicit",
+                RedirectUris = { new Uri("http://localhost:5002/callback"), new Uri("http://localhost:5048/callback") },
+                Permissions =
+                {
+                    OpenIddictConstants.Permissions.Endpoints.Authorization,
+                    OpenIddictConstants.Permissions.Endpoints.Token,
+                    OpenIddictConstants.Permissions.ResponseTypes.Code,
+                    OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode,
+                    OpenIddictConstants.Permissions.GrantTypes.ClientCredentials,
+                    OpenIddictConstants.Permissions.GrantTypes.RefreshToken,
+                    OpenIddictConstants.Permissions.Prefixes.Scope + "api",
+                    OpenIddictConstants.Permissions.Prefixes.Scope + "openid",
+                    OpenIddictConstants.Permissions.Prefixes.Scope + "profile",
+                    OpenIddictConstants.Permissions.Prefixes.Scope + "email"
+                }
+            },
+            new()
+            {
+                ClientId = "test-client-b",
+                ClientSecret = "test-client-secret-b",
+                DisplayName = "测试应用 B",
+                ClientType = "confidential",
+                ConsentType = "explicit",
+                RedirectUris = { new Uri("http://localhost:5002/callback"), new Uri("http://localhost:5048/callback") },
+                Permissions =
+                {
+                    OpenIddictConstants.Permissions.Endpoints.Authorization,
+                    OpenIddictConstants.Permissions.Endpoints.Token,
+                    OpenIddictConstants.Permissions.ResponseTypes.Code,
+                    OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode,
+                    OpenIddictConstants.Permissions.GrantTypes.ClientCredentials,
+                    OpenIddictConstants.Permissions.GrantTypes.RefreshToken,
+                    OpenIddictConstants.Permissions.Prefixes.Scope + "api",
+                    OpenIddictConstants.Permissions.Prefixes.Scope + "openid",
+                    OpenIddictConstants.Permissions.Prefixes.Scope + "profile",
+                    OpenIddictConstants.Permissions.Prefixes.Scope + "email",
+                    OpenIddictConstants.Permissions.Prefixes.Scope + "phone"
+                }
+            },
+            new()
+            {
+                ClientId = "test-public-client",
+                DisplayName = "公开测试客户端",
+                ClientType = "public",
+                ConsentType = "explicit",
+                RedirectUris = { new Uri("http://localhost:5003/callback") },
+                Permissions =
+                {
+                    OpenIddictConstants.Permissions.Endpoints.Authorization,
+                    OpenIddictConstants.Permissions.Endpoints.Token,
+                    OpenIddictConstants.Permissions.ResponseTypes.Code,
+                    OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode,
+                    OpenIddictConstants.Permissions.GrantTypes.RefreshToken,
+                    OpenIddictConstants.Permissions.Prefixes.Scope + "api",
+                    OpenIddictConstants.Permissions.Prefixes.Scope + "openid",
+                    OpenIddictConstants.Permissions.Prefixes.Scope + "profile",
+                    OpenIddictConstants.Permissions.Prefixes.Scope + "email"
+                }
+            }
+        };
+
+        foreach (var app in testApps)
+        {
+            var existing = await applicationManager.FindByClientIdAsync(app.ClientId);
+            if (existing == null)
+            {
+                await applicationManager.CreateAsync(app);
+            }
+            else
+            {
+                // 删除旧应用后重建（确保 redirect_uri 等更新生效）
+                await applicationManager.DeleteAsync(existing);
+                await applicationManager.CreateAsync(app);
+            }
         }
     }
 

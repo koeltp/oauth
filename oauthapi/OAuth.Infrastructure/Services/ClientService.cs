@@ -4,6 +4,7 @@ using OAuth.Application.Mappers;
 using OAuth.Contracts.Client;
 using OAuth.Domain.Entities;
 using OAuth.Infrastructure.Data;
+using OpenIddict.Abstractions;
 using Taipi.Core.Linq;
 using Taipi.Core.RQRS;
 
@@ -13,11 +14,13 @@ public class ClientService : IClientService
 {
     private readonly ApplicationDbContext _context;
     private readonly IEncryptionService _encryptionService;
+    private readonly IOpenIddictApplicationManager _applicationManager;
 
-    public ClientService(ApplicationDbContext context, IEncryptionService encryptionService)
+    public ClientService(ApplicationDbContext context, IEncryptionService encryptionService, IOpenIddictApplicationManager applicationManager)
     {
         _context = context;
         _encryptionService = encryptionService;
+        _applicationManager = applicationManager;
     }
 
     public async Task<PagerResponse<ClientDto>> GetListAsync(SearchPager<ClientSearchDto> query)
@@ -124,6 +127,8 @@ public class ClientService : IClientService
             client.Status = ClientStatus.Approved;
             client.ReviewerId = reviewerId;
             client.ReviewedAt = DateTime.UtcNow;
+
+            await SyncToOpenIddictAsync(client);
             await _context.SaveChangesAsync();
         }
     }
@@ -136,6 +141,8 @@ public class ClientService : IClientService
             client.Status = ClientStatus.Rejected;
             client.ReviewerId = reviewerId;
             client.ReviewedAt = DateTime.UtcNow;
+
+            await RemoveFromOpenIddictAsync(client.ClientId);
             await _context.SaveChangesAsync();
         }
     }
@@ -163,6 +170,7 @@ public class ClientService : IClientService
         var client = await _context.Clients.FindAsync(id);
         if (client != null)
         {
+            await RemoveFromOpenIddictAsync(client.ClientId);
             _context.Clients.Remove(client);
             await _context.SaveChangesAsync();
         }
@@ -176,5 +184,68 @@ public class ClientService : IClientService
     public async Task<int> GetClientsCountByStatus(ClientStatus status)
     {
         return await _context.Clients.CountAsync(c => c.Status == status);
+    }
+
+    private async Task SyncToOpenIddictAsync(Client client)
+    {
+        var descriptor = new OpenIddictApplicationDescriptor
+        {
+            ClientId = client.ClientId,
+            DisplayName = client.Name,
+            ClientType = client.IsPublic ? "public" : "confidential",
+            ConsentType = "explicit"
+        };
+
+        if (!client.IsPublic && !string.IsNullOrEmpty(client.ClientSecretEncrypted))
+        {
+            descriptor.ClientSecret = _encryptionService.Decrypt(client.ClientSecretEncrypted);
+        }
+
+        descriptor.Permissions.Add(OpenIddictConstants.Permissions.Endpoints.Token);
+
+        if (!client.IsPublic)
+        {
+            descriptor.Permissions.Add(OpenIddictConstants.Permissions.GrantTypes.ClientCredentials);
+        }
+
+        if (!string.IsNullOrEmpty(client.RedirectUris))
+        {
+            descriptor.Permissions.Add(OpenIddictConstants.Permissions.Endpoints.Authorization);
+            descriptor.Permissions.Add(OpenIddictConstants.Permissions.GrantTypes.AuthorizationCode);
+            descriptor.Permissions.Add(OpenIddictConstants.Permissions.GrantTypes.RefreshToken);
+
+            foreach (var uri in client.RedirectUris.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var trimmed = uri.Trim();
+                if (Uri.TryCreate(trimmed, UriKind.Absolute, out var parsed))
+                {
+                    descriptor.RedirectUris.Add(parsed);
+                }
+            }
+        }
+
+        foreach (var scope in (client.AllowedScopes ?? "").Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            descriptor.Permissions.Add(OpenIddictConstants.Permissions.Prefixes.Scope + scope);
+        }
+
+        var existing = await _applicationManager.FindByClientIdAsync(client.ClientId);
+        if (existing != null)
+        {
+            await _applicationManager.UpdateAsync(existing, descriptor);
+        }
+        else
+        {
+            await _applicationManager.CreateAsync(descriptor);
+        }
+    }
+
+    private async Task RemoveFromOpenIddictAsync(string clientId)
+    {
+        var existing = await _applicationManager.FindByClientIdAsync(clientId);
+        if (existing != null)
+        {
+            await _applicationManager.DeleteAsync(existing);
+        }
     }
 }

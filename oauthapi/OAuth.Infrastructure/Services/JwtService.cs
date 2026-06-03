@@ -50,6 +50,18 @@ public class JwtService : IJwtService
         return GenerateToken(claims);
     }
 
+    public string GenerateClientToken(Guid clientDbId, string clientId)
+    {
+        var claims = new List<Claim>
+        {
+            new Claim(ClaimTypes.NameIdentifier, clientDbId.ToString()),
+            new Claim("client_id", clientId),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+        };
+
+        return GenerateToken(claims);
+    }
+
     private string GenerateToken(IEnumerable<Claim> claims)
     {
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SecretKey));

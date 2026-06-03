@@ -1,6 +1,6 @@
 {
   "OAuthServer": {
-    "BaseUrl": "http://localhost:5000",
+    "BaseUrl": "https://localhost:7266",
     "ClientId": "test-public-client",
     "RedirectUri": "http://localhost:5003/callback"
   }

@@ -843,7 +843,8 @@ app.MapGet("/refresh-rotation-test", async (HttpContext ctx) =>
         .Replace("{content}", content), "text/html; charset=utf-8");
 });
 
-app.Run($"http://{redirectUri.Replace("http://", "").TrimEnd('/')}");
+var redirectUriObj = new Uri(redirectUri);
+app.Run($"{redirectUriObj.Scheme}://{redirectUriObj.Host}:{redirectUriObj.Port}");
 
 // ==================== PKCE 工具 ====================
 static string GenerateCodeVerifier()

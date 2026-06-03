@@ -43,6 +43,17 @@ public class ClientController : ControllerBase
         return new ResponseResult<ClientResponse>(ToResponse(client));
     }
 
+    [HttpGet("by-client-id/{clientId}")]
+    public async Task<ResponseResult<ClientResponse>> GetByClientId(string clientId)
+    {
+        var client = await _clientService.GetByClientIdAsync(clientId);
+        if (client == null)
+        {
+            return ResponseResult<ClientResponse>.NotFound("客户端未找到");
+        }
+        return new ResponseResult<ClientResponse>(ToResponse(client));
+    }
+
     [HttpPost("register")]
     [AllowAnonymous]
     public async Task<ResponseResult<ClientRegisteredResponse>> Register([FromBody] RegisterClientRequest request)

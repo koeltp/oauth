@@ -55,7 +55,7 @@
       </template>
 
       <div class="back-link" v-if="step !== 'send' && step !== 'done'">
-        <router-link to="/login">返回登录</router-link>
+        <router-link :to="{ path: '/login', query: $route.query.redirect ? { redirect: $route.query.redirect } : {} }">返回登录</router-link>
       </div>
     </div>
   </div>
@@ -63,13 +63,14 @@
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Message, Lock, Key, CircleCheck, HomeFilled } from '@element-plus/icons-vue'
 import type { FormInstance, FormRules } from 'element-plus'
 import request from '@/utils/api'
 
 const router = useRouter()
+const route = useRoute()
 
 const step = ref<'send' | 'reset' | 'done'>('send')
 const sending = ref(false)
@@ -183,7 +184,12 @@ async function handleResetPassword() {
 }
 
 function goToLogin() {
-  router.push('/login')
+  const redirect = route.query.redirect as string
+  if (redirect) {
+    router.push({ path: '/login', query: { redirect } })
+  } else {
+    router.push('/login')
+  }
 }
 </script>
 

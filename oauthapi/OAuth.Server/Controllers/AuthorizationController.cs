@@ -1,10 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Mvc;
-using OpenIddict.Server.AspNetCore;
-using OpenIddict.Abstractions;
 using OAuth.Application.Interfaces;
 using OAuth.Contracts.Common;
-using System.Security.Claims;
 using Taipi.Core.RQRS;
 
 namespace OAuth.Server.Controllers;
@@ -14,20 +12,35 @@ public class AuthorizationController : Controller
 {
     private readonly IOAuthAuthorizationService _authorizationService;
     private readonly IClientService _clientService;
+    private readonly IUserService _userService;
     private readonly ICurrentUserService _currentUserService;
+    private readonly IConfiguration _configuration;
 
     public AuthorizationController(
         IOAuthAuthorizationService authorizationService, 
         IClientService clientService,
-        ICurrentUserService currentUserService)
+        IUserService userService,
+        ICurrentUserService currentUserService,
+        IConfiguration configuration)
     {
         _authorizationService = authorizationService;
         _clientService = clientService;
+        _userService = userService;
         _currentUserService = currentUserService;
+        _configuration = configuration;
+    }
+
+    [HttpGet("authorize")]
+    public IActionResult RedirectToAuthorizationPage()
+    {
+        var frontendBaseUrl = _configuration.GetValue<string>("FrontendBaseUrl") 
+            ?? "http://localhost:3000";
+        var redirectUrl = $"{frontendBaseUrl}/authorize{Request.QueryString}";
+        return Redirect(redirectUrl);
     }
 
     [HttpPost("authorize/accept")]
-    [Authorize(AuthenticationSchemes = OpenIddictServerAspNetCoreDefaults.AuthenticationScheme)]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public async Task<IActionResult> Accept()
     {
         var userId = _currentUserService.GetUserId();
@@ -64,28 +77,21 @@ public class AuthorizationController : Controller
             return BadRequest(ResponseResult<object>.BadRequest("无效的客户端"));
         }
 
-        await _authorizationService.CreateAsync(userId.Value, client.Id, scope, redirectUri, codeChallenge, codeChallengeMethod);
-
-        var claims = new List<Claim>
+        var user = await _userService.GetByIdAsync(userId.Value);
+        if (user == null)
         {
-            new(ClaimTypes.NameIdentifier, userId.ToString()),
-            new(ClaimTypes.Name, User.FindFirstValue(ClaimTypes.Name) ?? ""),
-            new(ClaimTypes.Email, User.FindFirstValue(ClaimTypes.Email) ?? "")
-        };
+            return BadRequest(ResponseResult<object>.BadRequest("用户不存在"));
+        }
 
-        var identity = new ClaimsIdentity(claims, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
-        var principal = new ClaimsPrincipal(identity);
+        var authorization = await _authorizationService.CreateAsync(userId.Value, client.Id, scope, redirectUri, codeChallenge, codeChallengeMethod);
 
-        var scopes = scope?.Split(' ') ?? Array.Empty<string>();
-        principal.SetScopes(scopes);
-
-        return SignIn(principal, OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+        return Ok(new { code = authorization.Code });
     }
 
     [HttpPost("authorize/deny")]
-    [Authorize(AuthenticationSchemes = OpenIddictServerAspNetCoreDefaults.AuthenticationScheme)]
+    [Authorize(AuthenticationSchemes = JwtBearerDefaults.AuthenticationScheme)]
     public IActionResult Deny()
     {
-        return Forbid(OpenIddictServerAspNetCoreDefaults.AuthenticationScheme);
+        return Ok(new { error = "access_denied" });
     }
 }

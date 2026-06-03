@@ -45,7 +45,7 @@
       </el-form>
 
       <div class="login-link">
-        已有账号？ <router-link to="/login">立即登录</router-link>
+        已有账号？ <router-link :to="{ path: '/login', query: $route.query.redirect ? { redirect: $route.query.redirect } : {} }">立即登录</router-link>
       </div>
     </div>
   </div>
@@ -53,12 +53,13 @@
 
 <script setup lang="ts">
 import { ref, reactive } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, type FormInstance, type FormRules } from 'element-plus'
 import { User, Message, Key, Lock, HomeFilled } from '@element-plus/icons-vue'
 import api from '@/utils/api'
 
 const router = useRouter()
+const route = useRoute()
 
 const formRef = ref<FormInstance>()
 const loading = ref(false)
@@ -133,7 +134,13 @@ const handleRegister = async () => {
           password: form.password
         })
         ElMessage.success('注册成功')
-        router.push('/login')
+        // 保留 OAuth 授权参数，注册后跳回登录页并携带 redirect
+        const redirect = route.query.redirect as string
+        if (redirect) {
+          router.push({ path: '/login', query: { redirect } })
+        } else {
+          router.push('/login')
+        }
       } catch (error: any) {
         ElMessage.error(error.response?.data?.message || '注册失败')
       } finally {

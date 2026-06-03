@@ -60,10 +60,26 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { Loading, Check, User } from '@element-plus/icons-vue'
+import axios from 'axios'
 import api from '@/utils/api'
+import { useUserStore } from '@/stores/user'
 
 const route = useRoute()
 const router = useRouter()
+const userStore = useUserStore()
+
+const oauthHttp = axios.create({
+  baseURL: '/connect',
+  timeout: 30000
+})
+
+oauthHttp.interceptors.request.use((config) => {
+  const token = userStore.token
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
 
 const loading = ref(true)
 const authorizing = ref(false)
@@ -115,19 +131,19 @@ onMounted(async () => {
   }
 
   try {
-    // 从后端获取客户端信息
-    const res: any = await api.get(`/clients/${clientId}`)
+    const res: any = await api.get(`/clients/by-client-id/${clientId}`)
     clientName.value = res.name
     clientDescription.value = res.description || ''
     clientLogo.value = res.logo || ''
     
-    // 如果客户端配置了 scopes，覆盖请求的 scopes
-    if (res.allowedScopes && res.allowedScopes.length > 0) {
-      requestedScopes.value = res.allowedScopes
+    if (res.allowedScopes) {
+      // 仅在 URL 未指定 scope 时，才使用客户端注册的全部 scope 作为默认值
+      if (!scopeParam) {
+        requestedScopes.value = String(res.allowedScopes).split(' ').filter(Boolean)
+      }
     }
   } catch (error) {
     console.error('Failed to load client info:', error)
-    // 如果获取失败，显示基本信息
     clientName.value = '应用 #' + clientId.substring(0, 8)
   } finally {
     loading.value = false
@@ -150,7 +166,6 @@ const handleAuthorize = async () => {
       state: (route.query.state as string) || ''
     })
 
-    // 添加 PKCE 参数
     if (route.query.code_challenge) {
       params.set('code_challenge', route.query.code_challenge as string)
     }
@@ -158,25 +173,40 @@ const handleAuthorize = async () => {
       params.set('code_challenge_method', route.query.code_challenge_method as string)
     }
 
-    await api.post('/connect/authorize', Object.fromEntries(params), {
+    const res = await oauthHttp.post('/authorize/accept', params.toString(), {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     })
 
-    ElMessage.success('授权成功')
+    // 检查响应是否包含错误（JWT 过期等场景）
+    if (res.data?.error) {
+      throw new Error(res.data.error_description || res.data.error)
+    }
+    // 检查业务错误码（数字类型的 code 表示错误，而非授权码）
+    if (res.data && typeof res.data.code === 'number') {
+      throw new Error(res.data.message || '授权失败')
+    }
 
-    // 构建回调 URL
-    const code = 'auth-code-' + Date.now() + '-' + Math.random().toString(36).substr(2)
+    const code = res.data?.code
+    if (!code) {
+      throw new Error('未获取到授权码')
+    }
+
     let redirectUrl = redirectUri.value
     redirectUrl += redirectUrl.includes('?') ? '&' : '?'
     redirectUrl += `code=${code}`
-    
+
     if (route.query.state) {
       redirectUrl += `&state=${route.query.state}`
     }
 
     window.location.href = redirectUrl
   } catch (error: any) {
-    ElMessage.error(error.response?.data?.message || '授权失败')
+    // 优先使用 OAuth 标准错误描述，其次是业务错误消息
+    const errorMsg = error.response?.data?.error_description
+      || error.response?.data?.error
+      || error.response?.data?.message
+      || '授权失败'
+    ElMessage.error(errorMsg)
     authorizing.value = false
   }
 }
